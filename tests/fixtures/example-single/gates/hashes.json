@@ -1,0 +1,64 @@
+{
+ "schema": 1,
+ "tokens": 256,
+ "greedy_seed": 1234,
+ "seeds": [
+  1234,
+  1235,
+  1236,
+  1237,
+  1238
+ ],
+ "sampled": {
+  "temperature": 0.7,
+  "top_k": 20,
+  "top_p": 0.95
+ },
+ "prompts": {
+  "fibonacci-raw": {
+   "kind": "completion",
+   "prompt": "Write a short Python function that computes the Fibonacci sequence and explain it."
+  },
+  "gpu-chat-no-think": {
+   "kind": "chat",
+   "prompt": "Explain how matrix multiplication uses a GPU in plain English, then give a small numerical example.",
+   "thinking": false
+  }
+ },
+ "expected": {
+  "*": {
+   "fibonacci-raw": {
+    "greedy": "d83a96e9711e",
+    "sampled": [
+     "52beb27fa46e",
+     "148baae44f5f",
+     "a58e59171534",
+     "827d364a15e2",
+     "dcdefbc99b01"
+    ]
+   },
+   "gpu-chat-no-think": {
+    "greedy": "b07dde11621e",
+    "sampled": [
+     "72c891f707d4",
+     "ba748f975773",
+     "bfa9179886a2",
+     "1a845eaf3c57",
+     "1b9c993c0bb0"
+    ]
+   }
+  }
+ },
+ "cold": {
+  "1024": {
+   "prompt": "../prompts/ids-1024.json",
+   "tokens": 16,
+   "hash": "5551887251558d15d79082197ebeabb5a2d863088d5702e534eb5a6fe9b8141b"
+  },
+  "2048": {
+   "prompt": "../prompts/ids-2048.json",
+   "tokens": 16,
+   "hash": "5bc90d69b37bb44c1b3fe4eb759f3636ba806dfeaf3f19d6ad47ea05deab1893"
+  }
+ }
+}

@@ -1,0 +1,576 @@
+{
+ "base": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "0",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  },
+  "rank1": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "1",
+    "--port",
+    "8091"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  }
+ },
+ "fast": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "0",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_GATHER_SLOTS": "1",
+    "TF_EXAMPLE_OWNER_SLOTS": "1",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROLL_BATCH": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_SPIN_WAIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  },
+  "rank1": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "1",
+    "--port",
+    "8091"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_GATHER_SLOTS": "1",
+    "TF_EXAMPLE_OWNER_SLOTS": "1",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROLL_BATCH": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_SPIN_WAIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  }
+ },
+ "fast-long": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "2",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "0",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_GATHER_SLOTS": "1",
+    "TF_EXAMPLE_OWNER_SLOTS": "1",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROLL_BATCH": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_SPIN_WAIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  },
+  "rank1": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "2",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "1",
+    "--port",
+    "8091"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_GATHER_SLOTS": "1",
+    "TF_EXAMPLE_OWNER_SLOTS": "1",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROLL_BATCH": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_SPIN_WAIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  }
+ },
+ "pipe": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--pp",
+    "2",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "0",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  },
+  "rank1": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--pp",
+    "2",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "1",
+    "--port",
+    "8091"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  }
+ },
+ "pipe-fast": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--pp",
+    "2",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "0",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROLL_BATCH": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_SPIN_WAIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  },
+  "rank1": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--pp",
+    "2",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "1",
+    "--port",
+    "8091"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROLL_BATCH": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_SPIN_WAIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  }
+ },
+ "pipe-long": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "2",
+    "--pp",
+    "2",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "0",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  },
+  "rank1": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "2",
+    "--pp",
+    "2",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "1",
+    "--port",
+    "8091"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  }
+ },
+ "wide": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "0",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_GATHER_SLOTS": "1",
+    "TF_EXAMPLE_OWNER_SLOTS": "1",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  },
+  "rank1": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "8",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "1",
+    "--port",
+    "8091"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_GATHER_SLOTS": "1",
+    "TF_EXAMPLE_OWNER_SLOTS": "1",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  }
+ },
+ "wide-long": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "2",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "0",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "0",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_GATHER_SLOTS": "1",
+    "TF_EXAMPLE_OWNER_SLOTS": "1",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  },
+  "rank1": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "2",
+    "--tp",
+    "2",
+    "--kv-cache",
+    "fp8",
+    "--master",
+    "127.0.0.1",
+    "--rank",
+    "1",
+    "--port",
+    "8091"
+   ],
+   "env": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "NCCL_P2P_LEVEL": "SYS",
+    "TF_EXAMPLE_ATTN_LANES": "1",
+    "TF_EXAMPLE_CHUNK": "4096",
+    "TF_EXAMPLE_DRAFTS": "8",
+    "TF_EXAMPLE_DRAFT_HEAD": "affine4",
+    "TF_EXAMPLE_GATHER_SLOTS": "1",
+    "TF_EXAMPLE_OWNER_SLOTS": "1",
+    "TF_EXAMPLE_PEER_SLOTS": "1",
+    "TF_EXAMPLE_ROW_SPLIT": "1",
+    "TF_EXAMPLE_WINDOW_GRAPH": "0"
+   }
+  }
+ }
+}

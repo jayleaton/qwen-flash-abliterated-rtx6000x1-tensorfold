@@ -1,0 +1,44 @@
+{
+ "label": "R-1",
+ "tokens": 256,
+ "cells": [
+  {
+   "prompt": "code",
+   "temperature": 0.0,
+   "streams": 16,
+   "aggregate_tps": 900,
+   "alone": {
+    "unequal": 0,
+    "failed": 0
+   },
+   "serial": {
+    "unequal": 0,
+    "failed": 0
+   },
+   "reps": [
+    {
+     "token_sha": "d83a96e9711e"
+    }
+   ]
+  },
+  {
+   "prompt": "chat",
+   "temperature": 0.0,
+   "streams": 16,
+   "aggregate_tps": 700,
+   "alone": {
+    "unequal": 0,
+    "failed": 0
+   },
+   "serial": {
+    "unequal": 0,
+    "failed": 0
+   },
+   "reps": [
+    {
+     "token_sha": "b07dde11621e"
+    }
+   ]
+  }
+ ]
+}

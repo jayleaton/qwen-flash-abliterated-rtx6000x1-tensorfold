@@ -1,0 +1,152 @@
+# A synthetic recipe with several engines: one model, five pins on four backends, inherited builds and profiles.
+[recipe]
+name = "example-multi"
+model = "org/Example-Model"
+model_type = "example_dense"
+format = "mlx-q4g64"
+ships = ["cuda", "rtx", "metal"]
+served_name = "example"
+port = 8090
+
+[kit]
+rev = "0000000000000000000000000000000000000000"
+testkit = ">=0.4,<1"
+
+[engine.cuda]
+backend = "cuda"
+repo = "https://github.com/example/TensorFold.git"
+rev = "3a8646d183e7e26ced300cb8a0e6b3bacea38b48"
+tree = "d7bff0ac7101263f097af96036591c23d1f47a74"
+series = ["patches/cuda:0004"]
+
+[engine.cuda.build]
+vars = { NVCC = "/usr/local/cuda/bin/nvcc" }
+executables = ["NVCC"]
+steps = [["zig", "build", "native", "-Dnvcc={NVCC}"]]
+outputs = ["zig-out/native/bin/tensorfold-native"]
+
+[[engine.cuda.build.addon]]
+name = "xgrammar"
+var = "XGRAMMAR"
+repo = "https://github.com/mlc-ai/xgrammar"
+tag = "v0.2.8"
+commit = "97787376faee5ed8466cfad57c99855e4ce2f6aa"
+steps = [["zig", "build", "grammar", "-Dxgrammar={XGRAMMAR}"]]
+outputs = ["zig-out/native/lib/libtfgrammar.so"]
+
+# Upstream main with no patches: cuda's build.
+[engine.upstream]
+inherits = "cuda"
+rev = "114aaa77b4e66cad46225379337ac41fab7d6a8b"
+tree = "1bcd9d3857dfee156e3025ce127793e0c4e72b27"
+series = []
+
+# A 16 GB card: cuda's series to 0002, then its own, another format, and its own SM.
+[engine.rtx]
+inherits = "cuda"
+hardware = "rtx5070tix1"
+format = "exl3"
+tree = "5ed108cc2eada278177bcf6cd5a49e4922870a5b"
+series = ["patches/cuda:0002", "patches/rtx:0001"]
+
+[engine.rtx.build]
+vars = { SM = "120" }
+steps = [["zig", "build", "native", "-Dsm={SM}", "-Dnvcc={NVCC}"]]
+
+[engine.metal]
+hardware = "apple-silicon"
+repo = "https://github.com/example/TensorFold.git"
+rev = "63901107f1ef6204958c4cde88b598061eb8012b"
+tree = "909e350822cae0ca299e4da30b12580454c4d3da"
+series = []
+
+[engine.metal.build]
+steps = [["zig", "build", "native", "-Dcpu=apple_m1"]]
+outputs = ["zig-out/native/bin/tensorfold-native"]
+
+# A pin with no build and no profile yet.
+[engine.hip]
+repo = "https://github.com/example/TensorFold.git"
+rev = "3c86b41fb96646a519120f9dd48376391b8a4455"
+tree = "6c31a8bf260ba0ebf24eac956a9cfb5ff1857c99"
+
+[weights]
+rev = "86a956740bae39b0ad9be9b541952ce6c2ae84af"
+sha256 = "config/weights.sha256"
+
+[hardware]
+profile = "gb10x1"
+
+# Drafts with the checkpoint's draft head when MODEL holds draft.safetensors.
+[profile.cuda]
+engine = "cuda"
+topology = {}
+parallel = 8
+context = 131072
+flags = { kv-cache = "fp8", max-tokens = 32768, thinking-budget = 2048, prompt-cache-gib = 24, spill-gib = 128, drafter = "{model}" }
+when_model_has = { drafter = "draft.safetensors" }
+settings = { TENSORFOLD_MEMORY_RESERVE_GIB = 36, TF_EXAMPLE_KV_PAGES = 256, TF_EXAMPLE_DRAFT_HOLD = 1 }
+
+[profile.cuda-no-draft]
+inherits = "cuda"
+flags = { drafter = false }
+
+[profile.cuda-batch]
+inherits = "cuda-no-draft"
+parallel = 16
+context = 65536
+
+# Upstream main: cuda's levers without drafting, and without the patched draft hold.
+[profile.upstream]
+inherits = "cuda-no-draft"
+engine = "upstream"
+settings = { TF_EXAMPLE_DRAFT_HOLD = false }
+
+[profile.upstream-batch]
+inherits = "upstream"
+parallel = 16
+context = 65536
+
+[profile.rtx]
+engine = "rtx"
+topology = {}
+parallel = 1
+context = 131072
+flags = { kv-cache = "fp8", thinking-budget = 2048, prompt-cache-gib = 8, spill-gib = 64 }
+
+[profile.metal]
+engine = "metal"
+topology = {}
+parallel = 4
+context = 65536
+flags = { thinking-budget = 2048 }
+
+[profile.metal-24gb]
+inherits = "metal"
+context = 49152
+
+[profile.metal-16gb]
+inherits = "metal"
+parallel = 1
+context = 32768
+
+[[switch]]
+name = "TENSORFOLD_MEMORY_RESERVE_GIB"
+kind = "product"
+reason = "the GPU pool leaves room for the 24 GiB host prompt cache in unified memory"
+doc = "docs/CUDA.md#serve"
+hardware = ["gb10x1"]
+
+[[switch]]
+name = "TF_EXAMPLE_KV_PAGES"
+kind = "product"
+reason = "256-token KV pages"
+doc = "docs/CUDA.md#serve"
+hardware = ["gb10x1"]
+
+[[switch]]
+name = "TF_EXAMPLE_DRAFT_HOLD"
+kind = "product"
+reason = "a draft hold prices as a fixed cost of a drafted round (patches/cuda 0004; read only when it drafts)"
+doc = "docs/CUDA.md#drafting"
+hardware = ["gb10x1"]

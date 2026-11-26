@@ -1,0 +1,9 @@
+__pycache__/
+*.egg-info/
+.ruff_cache/
+build/
+dist/
+.venv/
+
+# private names for recipe publish-check
+.check-public.local

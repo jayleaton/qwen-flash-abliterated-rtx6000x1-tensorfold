@@ -1,0 +1,184 @@
+# A synthetic two-card recipe: tensor- and pipeline-parallel profiles, adapter modes, product switches and arms.
+[recipe]
+name = "example-single"
+model = "org/Example-Model-FP8"
+model_type = "example_moe"
+format = "fp8-block128"
+ships = ["base"]
+served_name = "example"
+port = 8090
+
+[kit]
+rev = "0000000000000000000000000000000000000000"
+testkit = ">=0.1,<1"
+
+[engine.cuda]
+repo = "https://github.com/example/TensorFold.git"
+rev = "2b96c5431e16a471f106a6f5598ad43a11a60846"
+tree = "2899b0f152b63a1a6bcb2d0de8a0fcc8440db69b"
+series = []
+
+[engine.cuda.build]
+vars = { NVCC = "/usr/local/cuda/bin/nvcc", GPU = "sm_120" }
+executables = ["NVCC"]
+steps = [["zig", "build", "-Dgpu={GPU}", "-Dnvcc={NVCC}"]]
+outputs = ["zig-out/native/bin/tensorfold-native"]
+
+[[engine.cuda.build.addon]]
+name = "xgrammar"
+var = "XGRAMMAR"
+repo = "https://github.com/mlc-ai/xgrammar"
+tag = "v0.2.8"
+commit = "97787376faee5ed8466cfad57c99855e4ce2f6aa"
+steps = [["zig", "build", "grammar", "-Dxgrammar={XGRAMMAR}"]]
+outputs = ["zig-out/native/lib/libtfgrammar.so"]
+
+[weights]
+rev = "d40e9637f635a1f1e2213325352374c07e8db5d1"
+sha256 = "config/weights.sha256"
+
+[hardware]
+profile = "rtx6000x2"
+
+[gates]
+conformance = "gates/conformance.json"
+hashes = "gates/hashes.json"
+
+[bench]
+cells = ["decode.code.x1", "decode.chat.x1", "decode.code.x16", "decode.chat.x16", "cold.1024", "cold.2048"]
+rounds = 2
+bar = 0.03
+control = true
+
+[soak]
+minutes = 30
+workers = 4
+probe_min = 5
+
+[profile.base]
+topology = { tensor = 2 }
+context = 32768
+parallel = 8
+flags = { kv-cache = "fp8" }
+mode = { exchange = "peer", capture = "eager" }
+settings = { TF_EXAMPLE_CHUNK = "4096", TF_EXAMPLE_DRAFTS = "8", TF_EXAMPLE_DRAFT_HEAD = "affine4", TF_EXAMPLE_ATTN_LANES = "1" }
+
+[profile.wide]
+inherits = "base"
+mode = { exchange = "peer_gather", prompt = "owner_slots", split = "rows" }
+
+[profile.wide-long]
+inherits = "wide"
+context = 131072
+parallel = 2
+
+[profile.pipe]
+inherits = "base"
+topology = { pipeline = 2 }
+flags = { kv-cache = false }
+mode = { split = "rows" }
+
+[profile.pipe-long]
+inherits = "pipe"
+context = 131072
+parallel = 2
+
+[arm.fast]
+base = "wide"
+experiments = { TF_EXAMPLE_ROLL_BATCH = "1", TF_EXAMPLE_SPIN_WAIT = "1" }
+
+[arm.fast-long]
+base = "wide-long"
+experiments = { TF_EXAMPLE_ROLL_BATCH = "1", TF_EXAMPLE_SPIN_WAIT = "1" }
+
+[arm.pipe-fast]
+base = "pipe"
+experiments = { TF_EXAMPLE_ROLL_BATCH = "1", TF_EXAMPLE_SPIN_WAIT = "1" }
+
+[[mode]]
+slot = "exchange"
+value = "peer"
+applies = "any"
+sets = { TF_EXAMPLE_PEER_SLOTS = "1" }
+receipt = "docs/PERFORMANCE.md"
+expires = "2027-03-01"
+
+[[mode]]
+slot = "exchange"
+value = "peer_gather"
+applies = "tensor"
+sets = { TF_EXAMPLE_PEER_SLOTS = "1", TF_EXAMPLE_GATHER_SLOTS = "1" }
+receipt = "docs/PERFORMANCE.md"
+expires = "2027-03-01"
+
+[[mode]]
+slot = "prompt"
+value = "owner_slots"
+applies = "tensor"
+sets = { TF_EXAMPLE_OWNER_SLOTS = "1" }
+receipt = "docs/PERFORMANCE.md"
+expires = "2027-03-01"
+
+[[mode]]
+slot = "capture"
+value = "eager"
+applies = "any"
+sets = { TF_EXAMPLE_WINDOW_GRAPH = "0" }
+receipt = "docs/PERFORMANCE.md"
+expires = "2027-03-01"
+
+[[mode]]
+slot = "split"
+value = "rows"
+applies = "any"
+sets = { TF_EXAMPLE_ROW_SPLIT = "1" }
+receipt = "docs/PERFORMANCE.md"
+expires = "2027-03-01"
+
+[[switch]]
+name = "TF_EXAMPLE_CHUNK"
+kind = "product"
+reason = "a prompt pass with no stream decoding takes up to this many rows"
+doc = "docs/ENGINE.md#levers"
+hardware = ["rtx6000x2"]
+receipt = "docs/PERFORMANCE.md"
+
+[[switch]]
+name = "TF_EXAMPLE_DRAFTS"
+kind = "product"
+reason = "draft tokens a round for greedy requests"
+doc = "docs/ENGINE.md#levers"
+hardware = ["rtx6000x2"]
+receipt = "docs/PERFORMANCE.md"
+
+[[switch]]
+name = "TF_EXAMPLE_DRAFT_HEAD"
+kind = "product"
+reason = "the draft head's projection as affine 4-bit"
+doc = "docs/ENGINE.md#levers"
+hardware = ["rtx6000x2"]
+receipt = "docs/PERFORMANCE.md"
+
+[[switch]]
+name = "TF_EXAMPLE_ATTN_LANES"
+kind = "product"
+reason = "won its ABBA; on until the engine makes it the default"
+doc = "docs/ENGINE.md#levers"
+hardware = ["rtx6000x2"]
+receipt = "docs/PERFORMANCE.md"
+
+[[switch]]
+name = "TF_EXAMPLE_ROLL_BATCH"
+kind = "experiment"
+owner = "recipe-maintainer"
+decides = "leave-one-out ABBA on rtx6000x2, bar 3%"
+added = "2026-11-26"
+expires = "2027-02-24"
+
+[[switch]]
+name = "TF_EXAMPLE_SPIN_WAIT"
+kind = "experiment"
+owner = "recipe-maintainer"
+decides = "leave-one-out ABBA on rtx6000x2, bar 3%"
+added = "2026-11-26"
+expires = "2027-02-24"

@@ -1,0 +1,10 @@
+{
+ "schema_version": 1,
+ "rows": [
+  {
+   "prompt_tokens": 2048,
+   "ttft_s": 0.22755555555555557,
+   "token_sha256": "5bc90d69b37bb44c1b3fe4eb759f3636ba806dfeaf3f19d6ad47ea05deab1893"
+  }
+ ]
+}

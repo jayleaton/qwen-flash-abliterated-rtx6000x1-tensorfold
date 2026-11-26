@@ -1,0 +1,280 @@
+{
+ "cuda": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "8",
+    "--kv-cache",
+    "fp8",
+    "--max-tokens",
+    "32768",
+    "--thinking-budget",
+    "2048",
+    "--prompt-cache-gib",
+    "24",
+    "--spill-gib",
+    "128",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "TENSORFOLD_MEMORY_RESERVE_GIB": "36",
+    "TF_EXAMPLE_DRAFT_HOLD": "1",
+    "TF_EXAMPLE_KV_PAGES": "256"
+   }
+  }
+ },
+ "cuda with draft.safetensors": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "8",
+    "--kv-cache",
+    "fp8",
+    "--max-tokens",
+    "32768",
+    "--thinking-budget",
+    "2048",
+    "--prompt-cache-gib",
+    "24",
+    "--spill-gib",
+    "128",
+    "--drafter",
+    "{model}",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "TENSORFOLD_MEMORY_RESERVE_GIB": "36",
+    "TF_EXAMPLE_DRAFT_HOLD": "1",
+    "TF_EXAMPLE_KV_PAGES": "256"
+   }
+  }
+ },
+ "cuda-batch with draft.safetensors": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "65536",
+    "--parallel",
+    "16",
+    "--kv-cache",
+    "fp8",
+    "--max-tokens",
+    "32768",
+    "--thinking-budget",
+    "2048",
+    "--prompt-cache-gib",
+    "24",
+    "--spill-gib",
+    "128",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "TENSORFOLD_MEMORY_RESERVE_GIB": "36",
+    "TF_EXAMPLE_DRAFT_HOLD": "1",
+    "TF_EXAMPLE_KV_PAGES": "256"
+   }
+  }
+ },
+ "cuda-no-draft with draft.safetensors": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "8",
+    "--kv-cache",
+    "fp8",
+    "--max-tokens",
+    "32768",
+    "--thinking-budget",
+    "2048",
+    "--prompt-cache-gib",
+    "24",
+    "--spill-gib",
+    "128",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "TENSORFOLD_MEMORY_RESERVE_GIB": "36",
+    "TF_EXAMPLE_DRAFT_HOLD": "1",
+    "TF_EXAMPLE_KV_PAGES": "256"
+   }
+  }
+ },
+ "metal": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "65536",
+    "--parallel",
+    "4",
+    "--thinking-budget",
+    "2048",
+    "--port",
+    "8090"
+   ],
+   "env": {}
+  }
+ },
+ "metal-16gb": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "32768",
+    "--parallel",
+    "1",
+    "--thinking-budget",
+    "2048",
+    "--port",
+    "8090"
+   ],
+   "env": {}
+  }
+ },
+ "metal-24gb": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "49152",
+    "--parallel",
+    "4",
+    "--thinking-budget",
+    "2048",
+    "--port",
+    "8090"
+   ],
+   "env": {}
+  }
+ },
+ "rtx": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "1",
+    "--kv-cache",
+    "fp8",
+    "--thinking-budget",
+    "2048",
+    "--prompt-cache-gib",
+    "8",
+    "--spill-gib",
+    "64",
+    "--port",
+    "8090"
+   ],
+   "env": {}
+  }
+ },
+ "upstream with draft.safetensors": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "131072",
+    "--parallel",
+    "8",
+    "--kv-cache",
+    "fp8",
+    "--max-tokens",
+    "32768",
+    "--thinking-budget",
+    "2048",
+    "--prompt-cache-gib",
+    "24",
+    "--spill-gib",
+    "128",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "TENSORFOLD_MEMORY_RESERVE_GIB": "36",
+    "TF_EXAMPLE_KV_PAGES": "256"
+   }
+  }
+ },
+ "upstream-batch with draft.safetensors": {
+  "rank0": {
+   "argv": [
+    "{engine}/zig-out/native/bin/tensorfold-native",
+    "serve",
+    "{model}",
+    "--name",
+    "example",
+    "--context",
+    "65536",
+    "--parallel",
+    "16",
+    "--kv-cache",
+    "fp8",
+    "--max-tokens",
+    "32768",
+    "--thinking-budget",
+    "2048",
+    "--prompt-cache-gib",
+    "24",
+    "--spill-gib",
+    "128",
+    "--port",
+    "8090"
+   ],
+   "env": {
+    "TENSORFOLD_MEMORY_RESERVE_GIB": "36",
+    "TF_EXAMPLE_KV_PAGES": "256"
+   }
+  }
+ }
+}

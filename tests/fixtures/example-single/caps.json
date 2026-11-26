@@ -1,0 +1,36 @@
+{
+ "schema": 1,
+ "engine": "zig",
+ "backends": [
+  "cuda"
+ ],
+ "families": {
+  "example_moe": [
+   "fp8-block128"
+  ]
+ },
+ "kernel_sms": [
+  120
+ ],
+ "serve": {
+  "flags": {
+   "--host": {},
+   "--port": {},
+   "--name": {},
+   "--context": {},
+   "--parallel": {},
+   "--max-tokens": {},
+   "--thinking-budget": {},
+   "--kv-cache": {},
+   "--drafter": {},
+   "--prompt-cache-gib": {},
+   "--spill-gib": {},
+   "--no-update-check": {},
+   "--tp": {},
+   "--pp": {},
+   "--rank": {},
+   "--master": {},
+   "--master-port": {}
+  }
+ }
+}

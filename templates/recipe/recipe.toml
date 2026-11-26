@@ -1,0 +1,78 @@
+# A new recipe starts here: copy this directory, rename the recipe and pin the engine to upstream main.
+# recipe update-engine --recipe DIR ENGINE_DIR moves the pin to main's head and records the tree it gives.
+
+[recipe]
+name = "modelx-rtx6000x2"
+model = "org/Model-X-FP8"
+model_type = "modelx"          # a key of the built binary's capabilities --json families
+format = "fp8-block128"        # one of that family's formats
+ships = ["default"]            # the profiles a user is told to run
+served_name = "modelx"
+port = 8080
+
+# The kit revision this recipe runs with (git rev-parse HEAD in the kit checkout); any other refuses to run.
+[kit]
+rev = "0000000000000000000000000000000000000000"
+testkit = ">=0.1,<1"
+
+# One [engine.NAME] per backend. series lists patch directories applied in order (DIR, or DIR:NNNN to stop at
+# NNNN); leave it empty while the family is upstream.
+[engine.cuda]
+repo = "https://github.com/ashhart/TensorFold.git"
+rev = "67ae36c4dc421d46fd49bea1fe9d913b477148c6"  # upstream main, 2026-11-26
+tree = "de56c7298600321259ea616bf765a1ead3326d33"
+series = []
+
+# vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
+# GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark.
+[engine.cuda.build]
+vars = { NVCC = "/usr/local/cuda/bin/nvcc", GPU = "sm_120" }
+executables = ["NVCC"]
+steps = [["zig", "build", "-Dgpu={GPU}", "-Dnvcc={NVCC}"]]
+outputs = ["zig-out/native/bin/tensorfold-native"]
+
+# libtfgrammar, for required and named tool calls and response_format. XGRAMMAR=DIR uses a checkout,
+# XGRAMMAR=none skips it, otherwise ENGINE_DIR/.xgrammar is cloned at the tag and checked against the commit.
+[[engine.cuda.build.addon]]
+name = "xgrammar"
+var = "XGRAMMAR"
+repo = "https://github.com/mlc-ai/xgrammar"
+tag = "v0.2.8"
+commit = "97787376faee5ed8466cfad57c99855e4ce2f6aa"
+steps = [["zig", "build", "grammar", "-Dxgrammar={XGRAMMAR}"]]
+outputs = ["zig-out/native/lib/libtfgrammar.so"]
+
+[weights]
+rev = "<the checkpoint's revision>"
+sha256 = "config/weights.sha256"
+
+[hardware]
+profile = "rtx6000x2"          # hardware/NAME.toml in the kit
+
+# What recipe gate holds the server to: a conformance profile in upstream's tools/conformance_profiles format, and
+# the expected token hashes by prompt and profile ("*" for every profile without its own row).
+[gates]
+conformance = "gates/conformance.json"
+hashes = "gates/hashes.json"
+
+# What recipe bench measures: ABBA (control A B B A control), a fresh server an arm. The first cell decides
+# "better"; any cell the bar below decides "worse". cold.SIZE cells need a cold row in gates/hashes.json.
+[bench]
+cells = ["decode.code.x1", "decode.chat.x1", "decode.code.x16", "decode.chat.x16"]
+rounds = 2
+bar = 0.03
+control = true
+
+# What recipe soak runs: mixed traffic with cancels, at the hardware profile's floors.
+[soak]
+minutes = 30
+workers = 4
+probe_min = 5
+
+# A profile: topology, window and streams, serve flags, adapter modes and product settings. Others may inherit it, and
+# a false value there drops an inherited flag, mode slot or setting. The kit passes only what a profile renders.
+[profile.default]
+topology = { tensor = 2 }
+context = 49152
+parallel = 16
+flags = { no-update-check = true }

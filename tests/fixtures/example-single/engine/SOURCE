@@ -1,0 +1,2 @@
+A stand-in engine tree: zig/src holds a synthetic rule table and one getenv; tools/ is upstream TensorFold's
+tools/ (bench clients and conformance), with two conformance.py docstring examples made generic.

@@ -1,0 +1,32 @@
+# Two DGX Spark (GB10) nodes, one rank each, over their ConnectX-7 link with RoCE v2.
+[chip]
+arch = 121
+gpu = "spark"
+ranks = 2
+unified = true
+
+[comm]
+transport = "roce"
+# The link's netdev, its RDMA devices (both PCIe links of the port) and its RoCE v2 GID index are read on each
+# node; cuMem off as the Spark recipes run their ranks.
+env = { NCCL_SOCKET_IFNAME = "@rdma-netdev", NCCL_IB_HCA = "@rdma-devices", NCCL_IB_GID_INDEX = "@roce-v2-gid", NCCL_CUMEM_ENABLE = "0", NCCL_CUMEM_HOST_ENABLE = "0" }
+
+[memory]
+# Host MemAvailable: the GPU and the CPU share it. Above earlyoom's kill level.
+floor_gib = 4.0
+gate_gib = "by-recipe"
+drop_caches = true
+
+[thermal]
+# The device guard's ladder: work pauses at 92 C, resumes at 86 C, and stops when 93 C holds for 30 s.
+pause_c = 92
+resume_c = 86
+hard_c = 93
+hard_hold_s = 30
+
+[power]
+# The device's GPU clock cap.
+clock_max_mhz = 2100
+
+[bench]
+note = "a null on bandwidth-bound GB10 may still win on a discrete card: ask for a run on one"

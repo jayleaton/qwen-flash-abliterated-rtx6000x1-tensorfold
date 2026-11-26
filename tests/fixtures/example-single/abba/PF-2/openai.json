@@ -1,0 +1,24 @@
+[
+ {
+  "label": "PF-2",
+  "prompt": "fibonacci-raw",
+  "temperature": 0.0,
+  "decode_tps_median": 200,
+  "evidence": [
+   {
+    "token_sha": "d83a96e9711e"
+   }
+  ]
+ },
+ {
+  "label": "PF-2",
+  "prompt": "gpu-chat-no-think",
+  "temperature": 0.0,
+  "decode_tps_median": 140,
+  "evidence": [
+   {
+    "token_sha": "b07dde11621e"
+   }
+  ]
+ }
+]

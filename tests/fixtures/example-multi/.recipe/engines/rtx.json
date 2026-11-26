@@ -1,0 +1,40 @@
+{
+ "engine": "rtx",
+ "tree": "5ed108cc2eada278177bcf6cd5a49e4922870a5b",
+ "names": {
+  "TENSORFOLD_MEMORY_RESERVE_GIB": null,
+  "TF_EXAMPLE_KV_PAGES": null,
+  "TF_EXAMPLE_UNUSED": "0.9",
+  "TF_EXAMPLE_DRAFT_HOLD": null
+ },
+ "by": "synthetic",
+ "capabilities": {
+  "schema": 1,
+  "backends": [
+   "cuda"
+  ],
+  "families": {
+   "example_dense": [
+    "mlx-q4g64",
+    "exl3"
+   ]
+  },
+  "kernel_sms": [],
+  "serve": {
+   "flags": {
+    "--host": {},
+    "--port": {},
+    "--name": {},
+    "--context": {},
+    "--parallel": {},
+    "--max-tokens": {},
+    "--thinking-budget": {},
+    "--kv-cache": {},
+    "--drafter": {},
+    "--prompt-cache-gib": {},
+    "--spill-gib": {},
+    "--no-update-check": {}
+   }
+  }
+ }
+}

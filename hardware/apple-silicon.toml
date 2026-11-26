@@ -1,0 +1,12 @@
+# One Apple Silicon Mac (M-series, Metal): one rank, unified memory.
+[chip]
+arch = "apple"
+gpu = "apple_m1"
+ranks = 1
+unified = true
+
+[comm]
+transport = "none"
+
+[bench]
+note = "memory decides the profile (16, 24, 48 GB and up); a number from one chip does not predict another"

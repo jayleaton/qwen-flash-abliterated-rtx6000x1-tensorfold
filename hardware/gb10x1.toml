@@ -1,0 +1,29 @@
+# One DGX Spark (GB10): one rank, no interconnect.
+[chip]
+arch = 121
+gpu = "spark"
+ranks = 1
+unified = true
+
+[comm]
+transport = "none"
+
+[memory]
+# Host MemAvailable: the GPU and the CPU share it. Above earlyoom's kill level.
+floor_gib = 4.0
+gate_gib = "by-recipe"
+drop_caches = true
+
+[thermal]
+# The device guard's ladder: work pauses at 92 C, resumes at 86 C, and stops when 93 C holds for 30 s.
+pause_c = 92
+resume_c = 86
+hard_c = 93
+hard_hold_s = 30
+
+[power]
+# The device's GPU clock cap.
+clock_max_mhz = 2100
+
+[bench]
+note = "a null on bandwidth-bound GB10 may still win on a discrete card: ask for a run on one"

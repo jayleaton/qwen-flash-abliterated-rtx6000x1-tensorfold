@@ -1,0 +1,37 @@
+{
+ "engine": "metal",
+ "tree": "909e350822cae0ca299e4da30b12580454c4d3da",
+ "names": {
+  "TENSORFOLD_MEMORY_RESERVE_GIB": null,
+  "TF_EXAMPLE_KV_PAGES": null,
+  "TF_EXAMPLE_UNUSED": "0.9"
+ },
+ "by": "synthetic",
+ "capabilities": {
+  "schema": 1,
+  "backends": [
+   "metal"
+  ],
+  "families": {
+   "example_dense": [
+    "mlx-q4g64"
+   ]
+  },
+  "serve": {
+   "flags": {
+    "--host": {},
+    "--port": {},
+    "--name": {},
+    "--context": {},
+    "--parallel": {},
+    "--max-tokens": {},
+    "--thinking-budget": {},
+    "--kv-cache": {},
+    "--drafter": {},
+    "--prompt-cache-gib": {},
+    "--spill-gib": {},
+    "--no-update-check": {}
+   }
+  }
+ }
+}

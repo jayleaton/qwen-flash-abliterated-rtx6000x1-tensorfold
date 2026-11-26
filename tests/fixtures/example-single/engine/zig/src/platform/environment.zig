@@ -1,0 +1,11 @@
+//! A stand-in rule table: the names the example engine reads.
+    .{ .name = "TF_EXAMPLE_ATTN_LANES", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_CHUNK", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_DRAFTS", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_GATHER_SLOTS", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_OWNER_SLOTS", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_PEER_SLOTS", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_ROLL_BATCH", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_ROW_SPLIT", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_SPIN_WAIT", .scope = .example, .kind = .flag, .forms = "0 or 1" },
+    .{ .name = "TF_EXAMPLE_WINDOW_GRAPH", .scope = .example, .kind = .flag, .forms = "0 or 1" },

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Run the recipe command from this checkout without installing it; nothing is exported to what it launches.
+set -euo pipefail
+kit=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
+exec python3 -c 'import sys; sys.path[:0] = sys.argv[1:3]; from recipe_kit.cli import main; sys.exit(main(sys.argv[3:]))' \
+    "$kit/kit" "$kit/testkit/src" "$@"

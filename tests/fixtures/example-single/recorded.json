@@ -1,0 +1,87 @@
+{
+ "source": "synthetic: the hashes table's replies, greedy then sampled",
+ "replies": [
+  {
+   "prompt": "Write a short Python function that computes the Fibonacci sequence and explain it.",
+   "temperature": 0,
+   "max_tokens": 256,
+   "token_sha": "d83a96e9711e"
+  },
+  {
+   "prompt": "Explain how matrix multiplication uses a GPU in plain English, then give a small numerical example.",
+   "temperature": 0,
+   "max_tokens": 256,
+   "token_sha": "b07dde11621e"
+  },
+  {
+   "prompt": "Write a short Python function that computes the Fibonacci sequence and explain it.",
+   "temperature": 0.7,
+   "seed": 1234,
+   "max_tokens": 256,
+   "token_sha": "52beb27fa46e"
+  },
+  {
+   "prompt": "Write a short Python function that computes the Fibonacci sequence and explain it.",
+   "temperature": 0.7,
+   "seed": 1235,
+   "max_tokens": 256,
+   "token_sha": "148baae44f5f"
+  },
+  {
+   "prompt": "Write a short Python function that computes the Fibonacci sequence and explain it.",
+   "temperature": 0.7,
+   "seed": 1236,
+   "max_tokens": 256,
+   "token_sha": "a58e59171534"
+  },
+  {
+   "prompt": "Write a short Python function that computes the Fibonacci sequence and explain it.",
+   "temperature": 0.7,
+   "seed": 1237,
+   "max_tokens": 256,
+   "token_sha": "827d364a15e2"
+  },
+  {
+   "prompt": "Write a short Python function that computes the Fibonacci sequence and explain it.",
+   "temperature": 0.7,
+   "seed": 1238,
+   "max_tokens": 256,
+   "token_sha": "dcdefbc99b01"
+  },
+  {
+   "prompt": "Explain how matrix multiplication uses a GPU in plain English, then give a small numerical example.",
+   "temperature": 0.7,
+   "seed": 1234,
+   "max_tokens": 256,
+   "token_sha": "72c891f707d4"
+  },
+  {
+   "prompt": "Explain how matrix multiplication uses a GPU in plain English, then give a small numerical example.",
+   "temperature": 0.7,
+   "seed": 1235,
+   "max_tokens": 256,
+   "token_sha": "ba748f975773"
+  },
+  {
+   "prompt": "Explain how matrix multiplication uses a GPU in plain English, then give a small numerical example.",
+   "temperature": 0.7,
+   "seed": 1236,
+   "max_tokens": 256,
+   "token_sha": "bfa9179886a2"
+  },
+  {
+   "prompt": "Explain how matrix multiplication uses a GPU in plain English, then give a small numerical example.",
+   "temperature": 0.7,
+   "seed": 1237,
+   "max_tokens": 256,
+   "token_sha": "1a845eaf3c57"
+  },
+  {
+   "prompt": "Explain how matrix multiplication uses a GPU in plain English, then give a small numerical example.",
+   "temperature": 0.7,
+   "seed": 1238,
+   "max_tokens": 256,
+   "token_sha": "1b9c993c0bb0"
+  }
+ ]
+}
