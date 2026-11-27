@@ -1,4 +1,8 @@
-"""Fail when a real model, recipe or recipe repo name is in a tracked or untracked (not ignored) file or its path."""
+"""Fail when a real model, recipe or recipe repo name is in a tracked or untracked (not ignored) file or its path.
+
+With pathspecs, only those parts of the tree are scanned: a repo that hosts a recipe beside the kit passes the
+recipe's directory, and the scan still covers every template part the recipe does not own.
+"""
 
 import re
 import subprocess
@@ -19,7 +23,10 @@ FIX = (
 
 def main() -> int:
     files = subprocess.run(
-        ["git", "ls-files", "-z", "-co", "--exclude-standard"], capture_output=True, text=True, check=True
+        ["git", "ls-files", "-z", "-co", "--exclude-standard", *sys.argv[1:]],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     found = []
     for name in filter(None, files.split("\0")):

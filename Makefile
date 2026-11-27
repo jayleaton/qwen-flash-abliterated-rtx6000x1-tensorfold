@@ -4,6 +4,8 @@ RUFF ?= uvx ruff@0.17.6
 BASE ?= origin/main
 MAX_LINES := 600
 SHELL_SCRIPTS := bin/recipe $(wildcard scripts/*.sh)
+# The template parts a hosted recipe does not own: the real-names scan covers these and passes the rest.
+TEMPLATE_PARTS := kit testkit templates hardware docs tests scripts bin pyproject.toml
 
 .PHONY: check check-full lint shell test test-full imports scrub names lines whitespace
 
@@ -35,7 +37,7 @@ scrub:
 	bin/recipe publish-check .
 
 names:
-	python3 scripts/real_names.py
+	python3 scripts/real_names.py $(TEMPLATE_PARTS)
 
 lines:
 	python3 scripts/max_lines.py $(MAX_LINES)
