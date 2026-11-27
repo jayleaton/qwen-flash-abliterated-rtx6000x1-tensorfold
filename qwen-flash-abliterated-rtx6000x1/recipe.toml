@@ -9,7 +9,7 @@ name = "qwen-flash-abliterated-rtx6000x1"
 model = "dealignai/Qwen3.8-Flash-Next-ABLITERATED-NVFP4"
 model_type = "flashnext"          # a key of the built binary's capabilities --json families
 format = "modelopt-mixed"         # the family's ModelOpt mixed-precision format (NVFP4 experts)
-ships = ["default", "agent"]
+ships = ["default"]
 served_name = "flash"
 port = 8090
 
@@ -19,14 +19,16 @@ port = 8090
 rev = "cc025f171e376c64be550ded0e0fdcdb6b704b36"
 testkit = ">=0.1,<1"
 
-# Upstream main plus the loader series for the shipped pack's ModelOpt config (quant_algo NVFP4 with an
-# ignore list, not MIXED_PRECISION per-layer rows) and its fused BF16 MTP experts, quantized on the host at
-# load into the FP8 form the head already serves. The TP1 lane series stacks here when it lands.
+# Upstream main plus three series, applied in order: patches/loader reads the shipped pack's ModelOpt config
+# and fused BF16 MTP experts; patches/tp1 (to 0011) the one-GPU lanes, each series switch off by default
+# except TF_FLASHNEXT_KEPT; patches/re-pin reconciles the two series' own re-pin patches, which were each
+# written against its series alone and do not stack: it carries their union, every row the hash of this
+# tree's own file. The one-GPU series' 0012 re-pin is superseded by it.
 [engine.cuda]
 repo = "https://github.com/ashhart/TensorFold.git"
 rev = "1a3a10d9194c58decd228ce3084f1ccae885a26a"  # upstream main, 2026-11-26
-tree = "6048b30504a4625d16363199634a3bac60dc4b6e"
-series = ["patches/loader"]
+tree = "876097bfb83763f480faac3a43079f0868596c5e"
+series = ["patches/loader", "patches/tp1:0011", "patches/re-pin"]
 
 # vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
 # GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark.
@@ -80,64 +82,99 @@ workers = 4
 probe_min = 5
 
 # The migrated one-GPU profile of the old recipe's config/profiles/tp1: --context 16384 --parallel 16, every
-# lane off, upstream main's behaviour, the token reference. A served profile sets no switch the engine has
-# not been measured on: the levers below are experiments, set by arms until a GPU run decides them.
+# lane off, upstream main's behaviour, and the reproduction reference: the control pack must give the old
+# recipe's one-GPU hashes (code 4e759dbd859c, chat 764da77fbd3f, cold 8K fa345c10f631; full values in
+# gates/control.hashes.json). KEPT=device pins main's memory layout for that check: the TP1 series keeps
+# prompt states in pinned host memory by default on a discrete card. Upstream now defaults
+# TF_FLASHNEXT_READOUT_FUSED on for prompt passes; if a hash moves, isolate with =0 before calling it a
+# regression.
 [profile.default]
 topology = {}
 context = 16384
 parallel = 16
+settings = { TF_FLASHNEXT_KEPT = "device" }
 
-# Long context, few streams: the coding-agent window of the lever notes (a 49K window makes agents compact
-# and mis-quote edit text; serve 139264 with 4 streams).
-[profile.agent]
-inherits = "default"
-context = 139264
-parallel = 4
-
-# The measured-lever profile: the TP1 levers land here as product rows with their receipts, once the
-# one-GPU ABBA on the shipped weights has decided each arm below. It starts as the default profile.
+# The ship profile once measured: the TP1 series' proposed default, every lever on. Each lever is expected,
+# not yet proven exact at TP1 (see README.md#levers-and-switches): hash-gate first, then one ABBA against
+# the default profile at the 3% bar; a loser drops off here, a winner stays. KEPT=host restates the series'
+# default for the ship profile.
 [profile.optimised]
 inherits = "default"
+settings = { TF_FLASHNEXT_KEPT = "host", TF_FLASHNEXT_GDN_SPLIT = "1", TF_FLASHNEXT_CHUNK_SOLO = "8192", TF_FLASHNEXT_ATTN_LANES = "1", TF_FLASHNEXT_ROLL_BATCH = "1", TF_FLASHNEXT_ROUTE_FUSED = "1", TF_FLASHNEXT_READOUT_DECODE = "1" }
 
-# Arms: each an expected TP1 lever, benched against the default profile on one RTX PRO 6000.
-[arm.solo-chunk]
-base = "default"
-experiments = { TF_FLASHNEXT_CHUNK_SOLO = "8192" }
+# The long-context agent window: 139,264 tokens is where coding agents stop compacting their history and
+# mis-quoting edit text; three streams fit on one card, the prompt cache 32 GiB in host RAM. Every lever
+# inherits the optimised profile, so every one of them is expected, not yet proven exact at TP1.
+[profile.agent]
+inherits = "optimised"
+context = 139264
+parallel = 3
+flags = { prompt-cache-gib = 32 }
 
+# The one lever outside the ship profile: NVFP4 accepts fewer drafts than FP8, so 12 greedy drafts is
+# measured by its own arm before it joins anything.
 [arm.drafts-greedy]
 base = "default"
 experiments = { TF_FLASHNEXT_DRAFTS_GREEDY = "12" }
 
-[arm.attn-lanes]
-base = "default"
-experiments = { TF_FLASHNEXT_ATTN_LANES = "1" }
+# Every switch this recipe knows, classified per docs/switch-policy.md. The ship profile's levers are product
+# rows (a served profile may set only product rows) whose reasons carry their evidence; every one of them is
+# expected, not yet proven exact at TP1, and the README says so beside each. DRAFTS_GREEDY is the one
+# experiment, set by its own arm.
+[[switch]]
+name = "TF_FLASHNEXT_KEPT"
+kind = "product"
+reason = "where kept prompt states live: device pins main's memory layout on the reproduction reference, host frees VRAM for KV on the ship profile (the series' default on a discrete card)"
+doc = "README.md#levers-and-switches"
+hardware = ["rtx6000x1"]
 
-[arm.optimised-stack]
-base = "default"
-experiments = { TF_FLASHNEXT_CHUNK_SOLO = "8192", TF_FLASHNEXT_DRAFTS_GREEDY = "12", TF_FLASHNEXT_ATTN_LANES = "1" }
+[[switch]]
+name = "TF_FLASHNEXT_GDN_SPLIT"
+kind = "product"
+reason = "fused prompt passes split the DeltaNet chain over (value head, 64-row slice) when every block has an SM: measured +9.7% cold 32K on one RTX PRO 6000 on the old pin, exact; expected, not yet proven at TP1 on this pin"
+doc = "docs/PERFORMANCE.md"
+hardware = ["rtx6000x1"]
+receipt = "docs/PERFORMANCE.md"
 
-# Every switch this recipe knows, classified per docs/switch-policy.md. All three are experiments: each is
-# expected from the TP1 cells of the lever notes, and none has been measured on this pin or these weights.
 [[switch]]
 name = "TF_FLASHNEXT_CHUNK_SOLO"
-kind = "experiment"
-owner = "recipe-maintainer"
-decides = "ABBA of arm solo-chunk against profile default on one RTX PRO 6000, bar 3%"
-added = "2026-11-27"
-expires = "2027-02-25"
+kind = "product"
+reason = "a solo prompt pass takes up to this many rows: measured +15-23% solo prefill on a 6000-class card elsewhere; expected, not yet proven at TP1"
+doc = "README.md#levers-and-switches"
+hardware = ["rtx6000x1"]
+
+[[switch]]
+name = "TF_FLASHNEXT_ATTN_LANES"
+kind = "product"
+reason = "batched attention lanes: measured +2.5% on one card elsewhere and +1.3-1.6% at x8/x16; expected, not yet proven at TP1"
+doc = "README.md#levers-and-switches"
+hardware = ["rtx6000x1"]
+
+[[switch]]
+name = "TF_FLASHNEXT_ROLL_BATCH"
+kind = "product"
+reason = "a partial keep's DeltaNet replay in three launches, not about 146: part of a measured +4.3% decode stack elsewhere, each alone within noise; expected, not yet proven exact at TP1"
+doc = "README.md#levers-and-switches"
+hardware = ["rtx6000x1"]
+
+[[switch]]
+name = "TF_FLASHNEXT_ROUTE_FUSED"
+kind = "product"
+reason = "router logits, top-k and plan in two launches for passes of 16 rows or fewer; the NVFP4 plan path never ran on a GPU; expected, not yet proven exact at TP1"
+doc = "README.md#levers-and-switches"
+hardware = ["rtx6000x1"]
+
+[[switch]]
+name = "TF_FLASHNEXT_READOUT_DECODE"
+kind = "product"
+reason = "a decode pass's BF16 hyper-connection read-out in two launches for passes under 64 rows; expected, not yet proven exact at TP1"
+doc = "README.md#levers-and-switches"
+hardware = ["rtx6000x1"]
 
 [[switch]]
 name = "TF_FLASHNEXT_DRAFTS_GREEDY"
 kind = "experiment"
 owner = "recipe-maintainer"
-decides = "ABBA of arm drafts-greedy against profile default on one RTX PRO 6000, bar 3%"
-added = "2026-11-27"
-expires = "2027-02-25"
-
-[[switch]]
-name = "TF_FLASHNEXT_ATTN_LANES"
-kind = "experiment"
-owner = "recipe-maintainer"
-decides = "ABBA of arm attn-lanes against profile default on one RTX PRO 6000, bar 3%"
+decides = "ABBA of arm drafts-greedy against profile default on one RTX PRO 6000, bar 3%; NVFP4 accepts fewer drafts than FP8, so it is measured alone"
 added = "2026-11-27"
 expires = "2027-02-25"

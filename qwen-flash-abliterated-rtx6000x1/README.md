@@ -30,27 +30,40 @@ numbers. The operations that finish this migration are in the repository's [RUNB
 
 | profile | serves | note |
 | --- | --- | --- |
-| `default` | one GPU, `--context 16384 --parallel 16` | the old `tp1` port: every lane off, upstream's behaviour, the token reference |
-| `agent` | one GPU, `--context 139264 --parallel 4` | long context, few streams: the coding-agent window |
-| `optimised` | as `default` | the TP1 levers land here as measured product rows; it starts as the default profile |
+| `default` | one GPU, `--context 16384 --parallel 16`, `KEPT=device` | the old `tp1` port, every lane off, and the reproduction reference: the control pack must give the old recipe's hashes; `KEPT=device` pins main's memory layout for that check |
+| `optimised` | the ship profile: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | the TP1 series' proposed default; **the intended ship profile once measured** |
+| `agent` | `optimised` at `--context 139264 --parallel 3`, prompt cache 32 GiB in host RAM | the coding-agent window, where agents stop compacting and mis-quoting `edit` text |
 
 ## Levers and switches
 
-Each lever is **expected, not measured**: the numbers behind it come from the old recipe's session or the
-lever notes on other cards, none on this pin and these weights. Under the [switch
-policy](../../docs/switch-policy.md) an unmeasured lever is an *experiment switch*, set only by an arm, so
-every lever below is benched through `recipe bench` before it may join a served profile.
+Every lever the `optimised` profile sets — and so every lever the `agent` profile inherits — is **expected,
+not yet proven exact at TP1**: the numbers behind them come from the old recipe's session, the lever notes
+or the kept series' own triage, none measured on this pin and these weights. The [switch
+policy](../../docs/switch-policy.md) lets a served profile set only product rows, so each carries its
+evidence in its reason; the GPU run hash-gates first, then one ABBA against `default` at the 3% bar decides
+the ship profile — a loser drops off it, a winner stays.
 
-| arm (against `default`) | switch | expected from | decides it |
+| switch | on | expected from | proven at TP1? |
 | --- | --- | --- | --- |
-| `solo-chunk` | `TF_FLASHNEXT_CHUNK_SOLO=8192` | a solo prompt pass of 8192 rows won +15-23% on one 6000-class card | ABBA, bar 3% |
-| `drafts-greedy` | `TF_FLASHNEXT_DRAFTS_GREEDY=12` | 12 greedy drafts was part of the old stacked-B arm | ABBA, bar 3% |
-| `attn-lanes` | `TF_FLASHNEXT_ATTN_LANES=1` | batched attention lanes won +1.3/+1.6% at x8/x16 elsewhere | ABBA, bar 3% |
-| `optimised-stack` | all three | the stacked arm the old recipe's B row was | one ABBA, bar 3% |
+| `TF_FLASHNEXT_GDN_SPLIT` | `optimised` | **measured** +9.7% cold 32K on one 6000 on the old pin, exact ([PERFORMANCE](docs/PERFORMANCE.md)) | not on this pin |
+| `TF_FLASHNEXT_CHUNK_SOLO=8192` | `optimised` | +15-23% solo prefill on a 6000-class card | no |
+| `TF_FLASHNEXT_ATTN_LANES` | `optimised` | +2.5% one card elsewhere, +1.3-1.6% at x8/x16 | no |
+| `TF_FLASHNEXT_ROLL_BATCH` | `optimised` | part of a measured +4.3% decode stack, alone within noise | no |
+| `TF_FLASHNEXT_ROUTE_FUSED` | `optimised` | the NVFP4 plan path never ran on a GPU | no |
+| `TF_FLASHNEXT_READOUT_DECODE` | `optimised` | small decode gain elsewhere | no |
+| `TF_FLASHNEXT_KEPT=host` | `optimised`, `agent` | frees VRAM for KV, restores cross PCIe; tokens should not depend on it | no |
+| `TF_FLASHNEXT_KEPT=device` | `default` | main's memory layout, for the reproduction check | n/a (a placement, not a lever) |
+| `TF_FLASHNEXT_DRAFTS_GREEDY=12` | the `drafts-greedy` arm | +5% greedy decode elsewhere; NVFP4 accepts fewer drafts, so it is measured alone | no |
 
-Not wired on purpose: `TF_FLASHNEXT_HIDDEN_SUM` changes tokens and the policy bans it outright; the two-GPU
-lanes (`--pp 2`, `OWNER_SLOTS`) do not act at one rank; `GDN_SPLIT` is not read by the pinned tree yet and
-arrives with the TP1 patch series. `DRAFT_HEAD=affine4` is already this pin's default, so it is no lever here.
+Two pin caveats for every hash check: upstream now defaults `TF_FLASHNEXT_READOUT_FUSED` on for prompt
+passes (if a hash moves, isolate with `=0` before calling it a regression), and the series keeps prompt
+states in pinned host memory by default (`KEPT=host`).
+
+**Left out on purpose:** `TF_FLASHNEXT_HIDDEN_SUM` (changes tokens; banned outright), the two-GPU lanes
+(`--pp 2`, `OWNER_SLOTS`, `PEER_SLOTS`, `SPLIT_ROWS`: inert or refused at one rank), `KV_HOST` (measured
+5.6-5.9x slower), fp8 KV on NVFP4 (KL 0.0328 fails the 0.02 gate), deeper drafts (14/16 -3%), and
+`DRAFT_HEAD=affine4` (already this pin's default). **A follow-up, not wired:** the FP8 recipe's 0084
+(`TF_FLASHNEXT_PLE_EARLY`, `TF_FLASHNEXT_ROUND_TURN`), which this series does not carry.
 
 ## Gates
 
