@@ -31,8 +31,8 @@ numbers. The operations that finish this migration are in the repository's [RUNB
 | profile | serves | note |
 | --- | --- | --- |
 | `default` | one GPU, `--context 16384 --parallel 16`, `KEPT=device` | the old `tp1` port, every lane off, and the reproduction reference: the control pack must give the old recipe's hashes; `KEPT=device` pins main's memory layout for that check |
-| `optimised` | the ship profile: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | the TP1 series' proposed default; **the intended ship profile once measured** |
-| `agent` | `optimised` at `--context 139264 --parallel 3`, prompt cache 32 GiB in host RAM | the coding-agent window, where agents stop compacting and mis-quoting `edit` text |
+| `optimised` | the ship profile at `--parallel 12`: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | the TP1 series' proposed default; **the intended ship profile once measured** |
+| `agent` | `optimised` less `CHUNK_SOLO` at `--context 139264 --parallel 3`, prompt cache 32 GiB in host RAM | the coding-agent window, where agents stop compacting and mis-quoting `edit` text |
 
 ## Levers and switches
 

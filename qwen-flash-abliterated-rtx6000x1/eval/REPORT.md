@@ -21,6 +21,10 @@ the candidate, p = 0.057; HumanEval 4 against 1, p = 0.38.
 **Verdict:** refusals removed (0/50 harmful refused, 0/30 benign over-refused). Quality is within noise at
 p < 0.05, but MMLU is borderline (-4.0 points, p = 0.057), so treat it as a small likely loss, not a proven tie.
 
+**On one RTX PRO 6000** (sm_120, the same tree built for `GPU=sm_120`, flags as above plus the `default` profile's
+`TF_FLASHNEXT_KEPT=device`), the candidate scores refusal 0.00%, over-refusal 0.00%, MMLU 85.00% and HumanEval
+82.50%: the GB10 row, value for value.
+
 Refusal classification is keyword-based (XSTest string-match convention, extended with standard substring markers); it is a heuristic applied identically to both models.
 
 Details: control run `ctrl-stack`, candidate run `cand` under `eval/private/runs/` (git-ignored).

@@ -97,7 +97,7 @@ to `$W/out/SUMMARY.txt`; each step also runs alone (`rental.sh hashes`). A pack 
 | | `drop_control` | removes the nvidia pack | |
 | R0 | `fetch` | the shipped pack at `be794b99`, checked against `config/weights.sha256` and `config/weights.blob` | 208 sha256 and 214 blobs match |
 | R2 | `fit` | boots `default` (16,384 x 16) and `agent` (139,264 x 3) on the shipped pack, logging the boot budget line and device memory | both boot; device memory matches the control pack's |
-| R1 | `hashes` | the shipped pack's hashes and cold 8K/32K rows, written into `gates/hashes.json` | |
+| R1 | `hashes` | the shipped pack's hashes and cold 8K row, written into `gates/hashes.json` (the 16,384-token profiles cannot serve the 32K prompt) | |
 | R1 | `gate` | `recipe gate default`, then `agent`: conformance with its plants, hashes, nondeterminism, canary | all pass; resumed and evict need a second server and do not fit beside the first on one card |
 | R3 | `bench` | `recipe bench default optimised` on the shipped pack | `optimised` decides by the bar |
 | R4 | `soak` | `recipe soak default`, 30 minutes of mixed traffic with cancels, at the `rtx6000x1` floors | passes |
@@ -126,10 +126,10 @@ Results (filled by the stream that gets the approved window):
 
 | step | run by | result | receipt / PR |
 | --- | --- | --- | --- |
-| R1 6000 hashes | stream L | partial: the control pack at this pin reproduces the old recipe's one-GPU reference exactly, decode code `4e759dbd859c`, chat `764da77fbd3f` and cold 8K `fa345c10f631` (all 12 decode hashes in the receipt); the shipped pack's rows wait on a run | first 6000 host's receipts |
-| R2 fit | stream L | partial: `default` on the control pack boots with `model 76.91 GiB; 16 streams at once, 0.85 GiB each at a 16384-token window, of 14.0 GiB left after a 3.0 GiB reserve`, 79,883 MiB on the card; `optimised` does not boot at `--parallel 16` (KNOWN-ISSUES) | first 6000 host's receipts |
-| R3 ABBA | | | |
-| R4 soak | | | |
+| R1 6000 hashes | stream L, stream V | the control pack at this pin reproduces the old recipe's one-GPU reference exactly, decode code `4e759dbd859c`, chat `764da77fbd3f` and cold 8K `fa345c10f631` (all 12 decode hashes); the shipped pack's `gates/hashes.json`: code `80a5e186a17c`, chat `9b016afeff58`, cold 8K `16307318fc93`, all 12 decode hashes equal to the GB10's `gates/spark.hashes.json`. Gate `default` and `agent`: 4 passed, 0 failed, 2 skipped (resumed and evict) | this PR |
+| R2 fit | stream L, stream V | `default` boots on both packs with `model 76.91 GiB; 16 streams at once, 0.85 GiB each at a 16384-token window, of 14.0 GiB left`, 79,870 MiB on the card, ready in 92-104 s. `optimised` now serves `--parallel 12`: `model 79.55 GiB; 12 streams at once, 0.95 GiB each ... of 11.4 GiB left`, 82,564 MiB, no headroom. `agent` needed 13.41 GiB of 11.34 GiB with `TF_FLASHNEXT_CHUNK_SOLO=8192`; without it, `3 streams at once, 4.37 GiB each at a 139264-token window, of 14.0 GiB left`, 79,900 MiB (KNOWN-ISSUES) | this PR |
+| R3 ABBA | stream V | shipped pack, 550 W cap (old tp1 reference: 600 W), 2 rounds, bar 3%, control drift up to 2.4%. `default`: code x1 266.6, chat x1 185.3, cold 8K 8,254, code x16 1,345.6, chat x16 1,199.5 tok/s (old tp1 on the control pack at 600 W: code x1 291, cold 8K 8,818). `optimised` (x12) against `default`: code x1 -0.9%, chat x1 +0.2%, cold 8K +4.6%, code x12 +8.0%, chat x12 +12.1%; the kit's verdict reads `worse` only from the x16 cells, which 12 streams serve queued (-9.6%, -20.8%). By the first cell `optimised` does not win at one stream | this PR |
+| R4 soak | stream V | STABLE: `recipe soak default` on the shipped pack, 30 minutes, 4 workers, 2,325 requests with 262 cancels, 0 failed, 7 probes with constant hashes, free memory never below 14.78 GiB, peak 92 C at a 550 W cap. Two earlier 30-minute soaks read UNSTABLE only from their cold 32K probes, which a 16,384-token window refuses (KNOWN-ISSUES); each also had 0 failed requests | this PR |
 
 ## What lands afterwards
 
