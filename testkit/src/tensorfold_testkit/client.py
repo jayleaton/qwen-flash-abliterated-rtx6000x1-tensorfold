@@ -10,6 +10,8 @@ import urllib.request
 from dataclasses import dataclass, field
 
 SHA = re.compile(r"[0-9a-f]{12}")
+# GET /v1/load http_active endpoints that generate tokens; a gate prompt may use any of them
+GENERATING = ("chat_completions", "completions", "responses", "messages")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 
 
@@ -72,16 +74,18 @@ class Client:
             return 0, b""
 
     def active(self) -> int | None:
-        """Chat requests open now, from TensorFold's GET /v1/load; None when the server reports none."""
+        """Generation requests open now, from TensorFold's GET /v1/load; None when the server reports none."""
         status, raw = self.get("/v1/load")
         try:
-            seen = json.loads(raw).get("http_active", {}).get("chat_completions") if status == 200 else None
+            open_ = json.loads(raw).get("http_active", {}) if status == 200 else None
+            seen = [open_.get(k) for k in GENERATING] if isinstance(open_, dict) else []
         except (ValueError, AttributeError):
             return None
-        return seen if type(seen) is int else None
+        seen = [n for n in seen if type(n) is int]
+        return sum(seen) if seen else None
 
     def together(self, calls: list[tuple[str, dict]], stream: bool = False) -> tuple[list[Reply], int | None]:
-        """Sends every request at once; the replies in order and the most chat requests seen open meanwhile."""
+        """Sends every request at once; the replies in order and the most generation requests seen open meanwhile."""
         out: list[Reply | None] = [None] * len(calls)
         start, done, peak = threading.Barrier(len(calls)), threading.Event(), [self.active()]
 

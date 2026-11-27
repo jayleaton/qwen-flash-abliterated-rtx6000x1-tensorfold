@@ -52,6 +52,13 @@ class Gates(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertIn("no token hash", result.line)
 
+    def test_overlap_seen_for_a_completion_prompt(self):
+        table = dict(hashes.load(self.table), prompts={"b": TABLE["prompts"]["b"], "a": TABLE["prompts"]["a"]})
+        with Mock(delay=0.2) as mock:
+            result = hashes.nondeterminism(Client(mock.url), table, 4)
+        self.assertTrue(result.passed, result.line)
+        self.assertRegex(result.line, r"up to ([2-9]|\d\d+) open at once")
+
     def test_every_gate_can_be_skipped(self):
         args = cli.parser().parse_args(["gate", "--mock", "--skip", ",".join(cli.ORDER)])
         self.assertEqual(cli.chosen(args), [])
