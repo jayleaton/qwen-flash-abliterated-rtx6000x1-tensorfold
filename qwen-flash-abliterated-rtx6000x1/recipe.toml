@@ -1,0 +1,142 @@
+# The recipe this repository hosts, instantiated from templates/recipe and migrated from the private
+# qwen-flash-nvfp4-rtx6000-tensorfold recipe: its one-GPU profile (`config/profiles/tp1`) is the `default`
+# profile here, and its NVFP4 control pack (nvidia @ fc694b54) remains the reference weights. The kit this
+# recipe pins is the copy in this repository; the copy was made from the kit at 759c8b4e0abc
+# (759c8b4e0abcecdc4c67d1712310ca7aed6cf4ea), recorded here and in the repository README.
+
+[recipe]
+name = "qwen-flash-abliterated-rtx6000x1"
+model = "dealignai/Qwen3.8-Flash-Next-ABLITERATED-NVFP4"
+model_type = "flashnext"          # a key of the built binary's capabilities --json families
+format = "modelopt-mixed"         # the family's ModelOpt mixed-precision format (NVFP4 experts)
+ships = ["default", "agent"]
+served_name = "flash"
+port = 8090
+
+# The kit revision this recipe runs with (git rev-parse HEAD in this repository's checkout); any other
+# refuses to run. A hosted run from a later checkout passes --kit-dev and stamps its receipts dev.
+[kit]
+rev = "cc025f171e376c64be550ded0e0fdcdb6b704b36"
+testkit = ">=0.1,<1"
+
+# Upstream main, no patch series yet: the one-GPU profile is upstream's behaviour. The loader series for the
+# shipped abliterated pack's shard layout and the TP1 lane series land here as they arrive.
+[engine.cuda]
+repo = "https://github.com/ashhart/TensorFold.git"
+rev = "1a3a10d9194c58decd228ce3084f1ccae885a26a"  # upstream main, 2026-11-26
+tree = "419130d8a28a1d534230d4802176076eee24756a"
+series = []
+
+# vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
+# GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark.
+[engine.cuda.build]
+vars = { NVCC = "/usr/local/cuda/bin/nvcc", GPU = "sm_120" }
+executables = ["NVCC"]
+steps = [["zig", "build", "-Dgpu={GPU}", "-Dnvcc={NVCC}"]]
+outputs = ["zig-out/native/bin/tensorfold-native"]
+
+# libtfgrammar, for required and named tool calls and response_format. XGRAMMAR=DIR uses a checkout,
+# XGRAMMAR=none skips it, otherwise ENGINE_DIR/.xgrammar is cloned at the tag and checked against the commit.
+[[engine.cuda.build.addon]]
+name = "xgrammar"
+var = "XGRAMMAR"
+repo = "https://github.com/mlc-ai/xgrammar"
+tag = "v0.2.8"
+commit = "97787376faee5ed8466cfad57c99855e4ce2f6aa"
+steps = [["zig", "build", "grammar", "-Dxgrammar={XGRAMMAR}"]]
+outputs = ["zig-out/native/lib/libtfgrammar.so"]
+
+# The shipped weights: the abliterated pack. The control pack (nvidia/Qwen3.8-Flash-Next-NVFP4 at fc694b54)
+# is recorded beside them in config/: the migration must reproduce the old recipe's one-GPU hashes on it.
+# The kit holds one weight set; the control set is this recipe's own addition, in config/control.*.
+[weights]
+rev = "be794b990578ef3031eccf9f28e675a289a09ee9"
+sha256 = "config/weights.sha256"
+
+[hardware]
+profile = "rtx6000x1"
+
+# What recipe gate holds the server to: a conformance profile in upstream's tools/conformance_profiles format,
+# and the expected token hashes by prompt and profile ("*" for every profile without its own row). The hash
+# table is empty and waits on the first GPU run; gates/control.hashes.json holds the old recipe's one-GPU
+# reference on the control pack until then.
+[gates]
+conformance = "gates/conformance.json"
+hashes = "gates/hashes.json"
+
+# What recipe bench measures: ABBA (control A B B A control), a fresh server an arm. The first cell decides
+# "better"; any cell the bar below decides "worse". cold.SIZE cells need a cold row in gates/hashes.json.
+[bench]
+cells = ["decode.code.x1", "decode.chat.x1", "decode.code.x16", "decode.chat.x16", "cold.8192", "cold.32768"]
+rounds = 2
+bar = 0.03
+control = true
+
+# What recipe soak runs: mixed traffic with cancels, at the hardware profile's floors.
+[soak]
+minutes = 30
+workers = 4
+probe_min = 5
+
+# The migrated one-GPU profile of the old recipe's config/profiles/tp1: --context 16384 --parallel 16, every
+# lane off, upstream main's behaviour, the token reference. A served profile sets no switch the engine has
+# not been measured on: the levers below are experiments, set by arms until a GPU run decides them.
+[profile.default]
+topology = {}
+context = 16384
+parallel = 16
+
+# Long context, few streams: the coding-agent window of the lever notes (a 49K window makes agents compact
+# and mis-quote edit text; serve 139264 with 4 streams).
+[profile.agent]
+inherits = "default"
+context = 139264
+parallel = 4
+
+# The measured-lever profile: the TP1 levers land here as product rows with their receipts, once the
+# one-GPU ABBA on the shipped weights has decided each arm below. It starts as the default profile.
+[profile.optimised]
+inherits = "default"
+
+# Arms: each an expected TP1 lever, benched against the default profile on one RTX PRO 6000.
+[arm.solo-chunk]
+base = "default"
+experiments = { TF_FLASHNEXT_CHUNK_SOLO = "8192" }
+
+[arm.drafts-greedy]
+base = "default"
+experiments = { TF_FLASHNEXT_DRAFTS_GREEDY = "12" }
+
+[arm.attn-lanes]
+base = "default"
+experiments = { TF_FLASHNEXT_ATTN_LANES = "1" }
+
+[arm.optimised-stack]
+base = "default"
+experiments = { TF_FLASHNEXT_CHUNK_SOLO = "8192", TF_FLASHNEXT_DRAFTS_GREEDY = "12", TF_FLASHNEXT_ATTN_LANES = "1" }
+
+# Every switch this recipe knows, classified per docs/switch-policy.md. All three are experiments: each is
+# expected from the TP1 cells of the lever notes, and none has been measured on this pin or these weights.
+[[switch]]
+name = "TF_FLASHNEXT_CHUNK_SOLO"
+kind = "experiment"
+owner = "recipe-maintainer"
+decides = "ABBA of arm solo-chunk against profile default on one RTX PRO 6000, bar 3%"
+added = "2026-11-27"
+expires = "2027-02-25"
+
+[[switch]]
+name = "TF_FLASHNEXT_DRAFTS_GREEDY"
+kind = "experiment"
+owner = "recipe-maintainer"
+decides = "ABBA of arm drafts-greedy against profile default on one RTX PRO 6000, bar 3%"
+added = "2026-11-27"
+expires = "2027-02-25"
+
+[[switch]]
+name = "TF_FLASHNEXT_ATTN_LANES"
+kind = "experiment"
+owner = "recipe-maintainer"
+decides = "ABBA of arm attn-lanes against profile default on one RTX PRO 6000, bar 3%"
+added = "2026-11-27"
+expires = "2027-02-25"
