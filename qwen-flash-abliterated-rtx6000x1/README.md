@@ -70,7 +70,10 @@ states in pinned host memory by default (`KEPT=host`).
 `gates/hashes.json` is empty on purpose: it waits on the first GPU run, which records the shipped pack's
 hashes and the cold rows the bench's `cold.*` cells need. Until then `gates/control.hashes.json` holds the
 control reference the migration must reproduce, and `gates/conformance.json` is the conformance profile
-upstream's `tools/conformance.py` runs against the served window.
+upstream's `tools/conformance.py` runs against the served window. The refusal and quality side has its own
+harness in [`eval/`](eval/README.md): deterministic suites scored against any served endpoint, both packs
+with identical flags, aggregates only in the committed [report](eval/REPORT.md) — the control row is measured,
+the shipped pack's is the pending half of the RUNBOOK's refusal/quality step.
 
 ## Run
 
