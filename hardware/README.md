@@ -3,8 +3,9 @@
 A hardware profile holds the facts every recipe on that hardware shares, so a recipe on hardware another recipe
 already uses supplies nothing for it. A recipe names one with `[hardware] profile = "NAME"`, which reads
 `hardware/NAME.toml`, or an `[engine.NAME] hardware` for the profiles on that engine:
-[`rtx6000x2`](rtx6000x2.toml), [`gb10x2`](gb10x2.toml), [`gb10x1`](gb10x1.toml),
-[`rtx5070tix1`](rtx5070tix1.toml) and [`apple-silicon`](apple-silicon.toml).
+[`rtx6000x1`](rtx6000x1.toml), [`rtx6000x2`](rtx6000x2.toml), [`gb10x2`](gb10x2.toml),
+[`gb10x1`](gb10x1.toml), [`rtx5070tix1`](rtx5070tix1.toml) and
+[`apple-silicon`](apple-silicon.toml).
 
 ```toml
 [chip]
