@@ -78,14 +78,26 @@ These are serve flags in `[profile.agent]`, product settings under the [switch p
 | `learn-min-free-gib` | 32 | past this free space, states stay in RAM only |
 | `learn-daily-gib` | 512 | the most it writes in a day |
 
-Receipt (RUNBOOK S8), one GB10 on its NVMe, turn-2 TTFT of a session grown in 16K-token turns, the same reply tokens
-in every column:
+Receipt (RUNBOOK S8, S9), one GB10 on its NVMe, turn-2 TTFT, the same reply tokens in every column of a row. A
+session sent as one long first-turn prompt (S9, with `patches/disk`):
+
+| session | cold | RAM hit | NVMe after restart | state on disk |
+| --- | --- | --- | --- | --- |
+| 64K | 32.6 s | 1.07 s | 2.73 s | 2.00 GiB |
+| 128K | 67.2 s | 0.58 s | 5.07 s | 3.89 GiB |
+
+A session grown in 16K-token turns (S8), also read back after RAM evicted it:
 
 | session | cold | RAM hit | NVMe after eviction | NVMe after restart | state on disk |
 | --- | --- | --- | --- | --- | --- |
 | 32K | 15.9 s | 0.66 s | 1.92 s | 1.62 s | 1.04 GiB |
 | 64K | 32.1 s | 1.38 s | 3.52 s | 2.70 s | 1.96 GiB |
 | 128K | 157.1 s | 0.46 s | 5.76 s | 5.08 s | 3.82 GiB |
+
+The engine's `patches/disk` lets one state as long as the served window reach the disk: upstream stages Flash Next's
+writes under a 1 GiB permit, which skipped any prompt adding more than about 33K new tokens at once (`StagingFull`).
+The permit now takes one whole state at `--context`, never past `--prompt-cache-gib`, as upstream already does for
+Gemma 4; it is sized once at startup.
 
 Hardware: measured on a GB10 (unified memory); expected on `rtx6000x1`, where a state also crosses PCIe into the
 pinned host cache (`KEPT=host`); the 6000's own restore rate is open ([KNOWN-ISSUES](docs/KNOWN-ISSUES.md)).

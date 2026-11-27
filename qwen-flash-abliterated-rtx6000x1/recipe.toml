@@ -17,16 +17,17 @@ port = 8090
 rev = "af19cdc4f6d3d5adb718dd9c53508722a575e597"
 testkit = ">=0.1,<1"
 
-# Upstream main plus three series, applied in order: patches/loader reads the shipped pack's ModelOpt config
+# Upstream main plus four series, applied in order: patches/loader reads the shipped pack's ModelOpt config
 # and fused BF16 MTP experts; patches/tp1 (to 0011) the one-GPU lanes, each series switch off by default
 # except TF_FLASHNEXT_KEPT; patches/re-pin reconciles the two series' own re-pin patches, which were each
 # written against its series alone and do not stack: it carries their union, every row the hash of this
-# tree's own file. The one-GPU series' 0012 re-pin is superseded by it.
+# tree's own file. The one-GPU series' 0012 re-pin is superseded by it. patches/disk sizes the disk tier's
+# staging permit to one whole state at the served window, so one long prompt reaches --prompt-cache-disk.
 [engine.cuda]
 repo = "https://github.com/ashhart/TensorFold.git"
 rev = "1a3a10d9194c58decd228ce3084f1ccae885a26a"  # upstream main, 2026-11-26
-tree = "876097bfb83763f480faac3a43079f0868596c5e"
-series = ["patches/loader", "patches/tp1:0011", "patches/re-pin"]
+tree = "88d5f91877cf1bbbf448f9d13b639d6523ed94dc"
+series = ["patches/loader", "patches/tp1:0011", "patches/re-pin", "patches/disk"]
 
 # vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
 # GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark. CPU is the -Dcpu target: native
@@ -106,7 +107,7 @@ settings = { TF_FLASHNEXT_KEPT = "host", TF_FLASHNEXT_GDN_SPLIT = "1", TF_FLASHN
 # mis-quoting edit text; three streams fit on one card, the prompt cache 32 GiB in host RAM. Every lever
 # inherits the optimised profile, so every one of them is expected, not yet proven exact at TP1.
 # Every prompt state the RAM cache keeps is also written to prompt-cache-disk and read back after an eviction or a
-# restart (a GB10 revisits a 128K session from NVMe in 5.1 s against 157 s cold, same tokens). The default folder is
+# restart (a GB10 revisits a one-prompt 128K session from NVMe in 5.1 s against 67 s cold, same tokens). The default folder is
 # relative to where the server starts; point it at an NVMe with `-- --prompt-cache-disk DIR` (the last one wins).
 # The store takes at most 128 GiB, leaves 32 GiB of the disk free and writes at most 512 GiB a day.
 [profile.agent]

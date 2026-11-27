@@ -1,0 +1,66 @@
+From 8bde151d42984726b8eef5ee3f43553026385eeb Mon Sep 17 00:00:00 2001
+From: Jay Leaton <58495321+jayleaton@users.noreply.github.com>
+Date: Fri, 27 Nov 2026 20:54:51 +0700
+Subject: [PATCH] flashnext cuda: the disk tier's permit takes one whole state
+ at the served window
+
+Flash Next's kept-state view declared no served window, so the rows store
+staged writes under its 1 GiB default permit. A state takes about 31 KiB a
+token, so a save whose new rows passed about 33K tokens was skipped
+(StagingFull), with its copy at an eviction: one 64K or 128K prompt never
+reached --prompt-cache-disk. The view now names the served window, as
+Gemma 4's, Dory's and Spark2.5's do, and core prices the permit at one whole
+state at it, never past --prompt-cache-gib. It is read once when the store
+opens; nothing changes per token, and replies are unchanged.
+
+test-flashnext-disk-host runs the family's disk tests without a GPU.
+---
+ zig/build/cuda_fault_host.zig            |  1 +
+ zig/src/families/flashnext/cuda_disk.zig | 15 +++++++++++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/zig/build/cuda_fault_host.zig b/zig/build/cuda_fault_host.zig
+index 4b1c31db1..29f06697f 100644
+--- a/zig/build/cuda_fault_host.zig
++++ b/zig/build/cuda_fault_host.zig
+@@ -4,6 +4,7 @@ const std = @import("std");
+ pub fn steps(b: *std.Build, cuda: *std.Build.Module, flashnext: *std.Build.Module, native: *std.Build.Module) void {
+     b.step("test-flashnext-warm-host", "Actual CUDA warm image policy and lane admission without devices").dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = flashnext, .filters = &.{ "a reply's warm pass", "four concurrent streams all retain MTP", "eight concurrent streams all retain MTP" } })).step);
+     b.step("test-cuda-context-health-host", "Sticky CUDA context faults and real graph-instantiation refusal without devices").dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = cuda, .filters = &.{ "CUDA context health:", "CUDA graph refusal:" } })).step);
++    b.step("test-flashnext-disk-host", "Flash Next's kept states on disk: the image's parts, and a permit that takes a whole state at the served window").dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = flashnext, .filters = &.{ "the image covers", "the image's parts", "the store's permit takes" } })).step);
+     b.step("test-flashnext-loader-host", "The threaded NVFP4 expert loader: the loop's words, no pinned or device memory left after a failed load, geometry first").dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = flashnext, .filters = &.{"Flash Next expert loader:"} })).step);
+     b.step("test-flashnext-completion-host", "Actual CUDA sequence rollback drains asynchronous destinations before release").dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = native, .filters = &.{"Flash Next completion:"} })).step);
+     b.step("test-flashnext-window-host", "The served copy window and its buffers: a width the boot check proved, the shipped rows unless it runs").dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = flashnext, .filters = &.{ "the served copy window widens", "the boot check's sweep", "a draft at 65,536 tokens", "the saved pieces follow", "the window's waits" } })).step);
+diff --git a/zig/src/families/flashnext/cuda_disk.zig b/zig/src/families/flashnext/cuda_disk.zig
+index 5ac452d97..8aa99855b 100644
+--- a/zig/src/families/flashnext/cuda_disk.zig
++++ b/zig/src/families/flashnext/cuda_disk.zig
+@@ -57,6 +57,11 @@ pub fn View(comptime F: type) type {
+             return c.head != null;
+         }
+ 
++        /// The served window: the store's permit takes one whole state at it, within --prompt-cache-gib.
++        pub fn context(c: *const Target) usize {
++            return c.context;
++        }
++
+         pub fn wordsOf(st: *const State) Words {
+             return .{ .history = st.history, .at = st.at, .head = @intFromBool(st.head) };
+         }
+@@ -182,3 +187,13 @@ test "the image's parts are cuda_snap.move's pieces in its order: sizes, offsets
+         try std.testing.expectEqual(rows.image.imageBytes(parts.items), off);
+     };
+ }
++
++test "the store's permit takes a whole state at the served window, which at 128K is past the 1 GiB default" {
++    const F = struct {
++        pub const Cuda = struct { context: usize };
++    };
++    const V = View(F);
++    const c: V.Target = .{ .context = 139264 };
++    try std.testing.expectEqual(@as(usize, 139264), V.context(&c));
++    try std.testing.expect(words + snap.bytes(@intCast(V.context(&c)), true, .full) > 1 << 30);
++}
+-- 
+2.56.0
+
