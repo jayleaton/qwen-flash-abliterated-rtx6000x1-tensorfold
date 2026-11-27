@@ -80,6 +80,7 @@ class Mock:
         self.chains = list(chains)
         self.kept: OrderedDict[tuple, int] = OrderedDict()
         self.lock, self.active, self.disconnects, self.counter = threading.Lock(), 0, 0, itertools.count()
+        self.open = {"chat_completions": 0, "completions": 0}  # by endpoint, as GET /v1/load reports them
         self.served = itertools.count(1)
 
     @staticmethod
@@ -217,8 +218,8 @@ def handler(mock: Mock):
                 return self.send(200, {"object": "list", "data": [model]})
             if self.path == "/v1/load":
                 with mock.lock:
-                    n = mock.active
-                return self.send(200, {"running": n, "waiting": 0, "http_active": {"chat_completions": n}})
+                    n, open_ = mock.active, dict(mock.open)
+                return self.send(200, {"running": n, "waiting": 0, "http_active": open_})
             if self.path == "/metrics":
                 text = f"tensorfold:client_disconnections_total {mock.disconnects}\n"
                 return self.send(200, text.encode(), "text/plain")
@@ -233,13 +234,16 @@ def handler(mock: Mock):
             refused = mock.refusal(body, len(words))
             if refused:
                 return self.send(400, {"error": {"message": refused, "type": "invalid_request_error"}})
+            route = self.path.removeprefix("/v1/").replace("/", "_")
             with mock.lock:
                 mock.active += 1
+                mock.open[route] += 1
                 together = mock.active > 1
                 n = next(mock.counter) if mock.fault in ("error", "leak") else 0
             if mock.fault == "error" and n % 5 == 4:
                 with mock.lock:
                     mock.active -= 1
+                    mock.open[route] -= 1
                 return self.send(500, {"error": {"message": "planted error", "type": "server_error"}})
             try:
                 time.sleep(mock.delay + (len(words) / mock.prefill_tps if mock.prefill_tps else 0))
@@ -251,7 +255,9 @@ def handler(mock: Mock):
                     mock.disconnects += 1
             finally:
                 with mock.lock:
-                    mock.active -= 0 if mock.fault == "leak" and n % 7 == 6 else 1
+                    gone = 0 if mock.fault == "leak" and n % 7 == 6 else 1
+                    mock.active -= gone
+                    mock.open[route] -= gone
 
         def answer(self, body, prompt, words, together):
             out = mock.reply(body, prompt, together)
