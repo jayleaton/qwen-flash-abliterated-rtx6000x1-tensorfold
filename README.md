@@ -31,7 +31,8 @@ For scale, the earlier one-GPU reference on NVIDIA's NVFP4 pack ran code x1 at 2
 code x12 **+8.0%**, chat x12 **+12.1%**, one stream flat (code -0.9%, chat +0.2%).
 
 **Long sessions from NVMe** (`agent`, measured on a GB10): revisit a 128K session in **5.1 s** from NVMe after a
-restart vs **157 s** cold (0.46 s from RAM), with the same reply tokens; 64K in 2.7 s vs 32.1 s.
+restart vs **67 s** cold (0.58 s from RAM), with the same reply tokens, even when all 128K came in one first-turn
+prompt; 64K in 2.7 s vs 32.6 s.
 
 **Fit:** `default` loads `model 76.91 GiB` and holds 79,870 MiB of the card at ready, with 16 streams of 16,384
 tokens.
