@@ -23,11 +23,13 @@ testkit = ">=0.1,<1"
 # written against its series alone and do not stack: it carries their union, every row the hash of this
 # tree's own file. The one-GPU series' 0012 re-pin is superseded by it. patches/disk sizes the disk tier's
 # staging permit to one whole state at the served window, so one long prompt reaches --prompt-cache-disk.
+# patches/dynkv puts the engine's own stream on upstream's K/V page pool too under TF_FLASHNEXT_KV_PAGES_ALL,
+# so every stream shares one pool.
 [engine.cuda]
 repo = "https://github.com/ashhart/TensorFold.git"
 rev = "1a3a10d9194c58decd228ce3084f1ccae885a26a"  # upstream main, 2026-11-26
-tree = "88d5f91877cf1bbbf448f9d13b639d6523ed94dc"
-series = ["patches/loader", "patches/tp1:0011", "patches/re-pin", "patches/disk"]
+tree = "0272db7df4948f9e93016b26057b86ed9b550e10"
+series = ["patches/loader", "patches/tp1:0011", "patches/re-pin", "patches/disk", "patches/dynkv"]
 
 # vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
 # GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark. CPU is the -Dcpu target: native
@@ -103,19 +105,21 @@ inherits = "default"
 parallel = 12
 settings = { TF_FLASHNEXT_KEPT = "host", TF_FLASHNEXT_GDN_SPLIT = "1", TF_FLASHNEXT_CHUNK_SOLO = "8192", TF_FLASHNEXT_ATTN_LANES = "1", TF_FLASHNEXT_ROLL_BATCH = "1", TF_FLASHNEXT_ROUTE_FUSED = "1", TF_FLASHNEXT_READOUT_DECODE = "1" }
 
-# The long-context agent window: 139,264 tokens is where coding agents stop compacting their history and
-# mis-quoting edit text; three streams fit on one card, the prompt cache 32 GiB in host RAM. Every lever
-# inherits the optimised profile, so every one of them is expected, not yet proven exact at TP1.
+# The long-context agent window: the model's own 262,144 tokens, so coding agents stop compacting their history
+# and mis-quoting edit text. Every stream takes K/V pages of one shared pool as its request needs them
+# (patches/dynkv): a short chat holds a few thousand tokens, one session can grow to the whole window, and a
+# request the pool cannot hold yet waits in the queue. Eight streams; the prompt cache 32 GiB in host RAM. Every
+# lever inherits the optimised profile, so every one of them is expected, not yet proven exact at TP1.
 # Every prompt state the RAM cache keeps is also written to prompt-cache-disk and read back after an eviction or a
 # restart (a GB10 revisits a one-prompt 128K session from NVMe in 5.1 s against 67 s cold, same tokens). The default folder is
 # relative to where the server starts; point it at an NVMe with `-- --prompt-cache-disk DIR` (the last one wins).
 # The store takes at most 128 GiB, leaves 32 GiB of the disk free and writes at most 512 GiB a day.
 [profile.agent]
 inherits = "optimised"
-context = 139264
-parallel = 3
+context = 262144
+parallel = 8
 flags = { prompt-cache-gib = 32, prompt-cache-disk = "prompt-cache", spill-gib = 128, learn-gib = 128, learn-min-free-gib = 32, learn-daily-gib = 512 }
-settings = { TF_FLASHNEXT_CHUNK_SOLO = false }
+settings = { TF_FLASHNEXT_CHUNK_SOLO = false, TF_FLASHNEXT_KV_PAGES = "256", TF_FLASHNEXT_KV_PAGES_ALL = "1" }
 
 # The one lever outside the ship profile: NVFP4 accepts fewer drafts than FP8, so 12 greedy drafts is
 # measured by its own arm before it joins anything.
@@ -176,6 +180,22 @@ kind = "product"
 reason = "a decode pass's BF16 hyper-connection read-out in two launches for passes under 64 rows; expected, not yet proven exact at TP1"
 doc = "README.md#levers-and-switches"
 hardware = ["rtx6000x1"]
+
+[[switch]]
+name = "TF_FLASHNEXT_KV_PAGES"
+kind = "product"
+reason = "every stream's K/V in 256-token pages of one pool sized by the boot budget, taken per request: on one GB10 the same 12 token hashes as fixed windows and an ABBA within 0.3% (decode x1 -0.1%, x4 +1.5%, cold 8K +0.3%); not yet measured on a 6000"
+doc = "README.md#levers-and-switches"
+hardware = ["rtx6000x1"]
+receipt = "docs/CAPACITY.md"
+
+[[switch]]
+name = "TF_FLASHNEXT_KV_PAGES_ALL"
+kind = "product"
+reason = "puts the engine's own stream on the pool too (patches/dynkv), so no idle window is held: the agent profile's 262,144 x 8 boots with 8 streams on one shared pool; on one GB10 the same 12 token hashes"
+doc = "README.md#levers-and-switches"
+hardware = ["rtx6000x1"]
+receipt = "docs/CAPACITY.md"
 
 [[switch]]
 name = "TF_FLASHNEXT_DRAFTS_GREEDY"

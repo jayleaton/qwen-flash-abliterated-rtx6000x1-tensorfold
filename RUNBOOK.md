@@ -12,7 +12,9 @@ or from a `recipe kit` bundle for clean receipts: the bundle's kit release carri
 The engine is upstream TensorFold main plus four series, applied in order: the **loader series** (the shipped
 pack's stated quantization and fused MTP experts do not load without it), the **one-GPU lever series**
 (`patches/tp1`), a **re-pin patch** that reconciles the two series' re-pins of upstream's serving-source
-hashes, and the **disk permit** (`patches/disk`), which lets one state as long as the window reach the disk tier. The **eval harness** in the recipe's `eval/` scores refusals and quality.
+hashes, the **disk permit** (`patches/disk`), which lets one state as long as the window reach the disk tier, and the
+**dynamic K/V series** (`patches/dynkv`), which puts the engine's own stream on upstream's page pool so that
+`agent`'s streams share one pool. The **eval harness** in the recipe's `eval/` scores refusals and quality.
 
 ## 1. A GB10 (DGX Spark)
 
@@ -46,6 +48,23 @@ widths are the 6000's to measure.
 | S8 prompt states | `agent`'s args at `--context 139264 --parallel 3` (the GB10 sizes the RAM cache to 15.9 GiB). Turn-2 TTFT cold / RAM / NVMe after eviction / NVMe after restart: 32K 15.9 / 0.66 / 1.92 / 1.62 s, 64K 32.1 / 1.38 / 3.52 / 2.70 s, 128K 157.1 / 0.46 / 5.76 / 5.08 s; reply tokens equal in all four at each size (`7989cc9ec180`, `9ccea81c1c81`, `0b75826f55a0`). States on disk: 1.04, 1.96 and 3.82 GiB. Before `patches/disk`, a 32K prompt sent in one piece was written too but a 64K one was skipped (`StagingFull`). Soak STABLE: 10 minutes, 126 requests, 3 probes with constant hashes, 0 failed; the store grew from 0 to 4.5 GiB (the kit refused only to write the receipt, whose args held the run's absolute folder) |
 | S9 one long prompt | tree `88d5f918` (`patches/disk`), RAM cache 18.6 GiB. 64K: cold 32.6 s, RAM 1.07 s, NVMe after restart 2.73 s, tokens `d2a261efbf82` in all three, 2.00 GiB on disk. 128K: cold 67.2 s, RAM 0.58 s, NVMe after restart 5.07 s, tokens `4169cbb640d8`, 3.89 GiB. 0 `StagingFull` lines. S8's grown 128K session cold-prefilled in 157.1 s against this one prompt's 67.2 s; S8 ran with a 15.9 GiB RAM cache and many short messages, and the difference is not isolated |
 
+### The shared K/V pool on the GB10
+
+Tree `dcc6f37a` (the stack above without `patches/disk`, plus `patches/dynkv`) built for `-Dgpu=spark`, with dev-only GB10 profiles
+beside the recipe's: fixed windows at 65,536 x 4, the same with `TF_FLASHNEXT_KV_PAGES=256` and
+`TF_FLASHNEXT_KV_PAGES_ALL=1`, and the pages at 262,144 x 8. Without the levers and with them (`agent`'s set
+and a host cache), each one's numbers are in [CAPACITY](qwen-flash-abliterated-rtx6000x1/docs/CAPACITY.md#one-shared-kv-pool-agent).
+
+| step | result |
+| --- | --- |
+| D1 host tests | `zig build test-cuda-host`: 9,852 of 9,898 pass, the one failure (`start CLI: Ctrl-C during a deferred download`) the same on the base tree (9,851 of 9,897); `lean_check` 123 findings, as the base; `pr_check` 0 errors |
+| D2 hashes | 12/12 equal to `gates/spark.hashes.json` for fixed windows, every stream on pages, 262,144 x 8, and 262,144 x 8 with `agent`'s levers |
+| D3 ABBA | fixed against paged, 2 rounds, bar 3%: code x1 -0.1%, chat x1 -0.1%, code x4 +1.5%, chat x4 +0.3%, cold 8K +0.3%; no difference |
+| D4 mixed | 262,144 x 8: short chats beside one session grown to 152,125 tokens, 0 of 123 failed; with a host cache each turn restored the last |
+| D5 exhaustion | 12 requests reserving about 263K tokens each of a 787,200-token pool ran two at a time, the rest waiting; all 12 returned 200 |
+| D6 soak | 10 minutes at 262,144 x 8: STABLE, 140 requests, 22 cancels, 0 failed, probe hashes constant |
+| D7 with `patches/disk` | the recipe's tree `0272db7d`, `agent` at the GB10's sizes (16 GiB RAM cache, the disk tier on): hashes 12/12 equal; mixed traffic 0 of 26 failed, the session grown to 152,125 tokens restoring each turn, 8.2 GiB of states on disk; 10-minute soak STABLE, 136 requests, 0 failed, probe hashes constant |
+
 ## 2. One RTX PRO 6000
 
 The 6000 runs below used a rented cloud host. Cloud hosts' drivers and power caps change between machines, so
@@ -65,6 +84,9 @@ compile: the engine comes prebuilt in a `recipe kit` bundle. On a rented host, s
 | software | python 3.11+, git, curl, pip, `gh`, network to Hugging Face and GitHub | the kit, the weight fetch, the bundle |
 
 ### The bundle
+
+The release bundle below predates `patches/disk` and `patches/dynkv`: its `default` and `optimised` serve as before, but `agent` needs
+a bundle built from tree `0272db7d` (`recipe kit` after `recipe prepare` with `GPU=sm_120 CPU=x86_64_v3`).
 
 `qwen-flash-abliterated-rtx6000x1-876097bfb837` (engine tree `876097bf`, the pin plus `patches/loader`,
 `patches/tp1:0011` and `patches/re-pin`, built for `GPU=sm_120 CPU=x86_64_v3`), attached to this repository's
@@ -95,7 +117,7 @@ to `$W/out/SUMMARY.txt`; each step also runs alone (`rental.sh hashes`). A pack 
 | R1, R3 | `control` | NVIDIA's pack's `default` hashes and unsalted cold 8K against the earlier one-GPU reference, then `recipe bench default optimised` on it (ABBA inside the kit's control arm, 2 rounds, 6 cells, bar 3%) | code `4e759dbd859c`, chat `764da77fbd3f`, cold 8K `fa345c10f631`; `default` code x1 about 291 tok/s, cold 8K about 8,818 tok/s at 600 W |
 | | `drop_control` | removes NVIDIA's pack | |
 | R0 | `fetch` | the shipped pack at `be794b99`, checked against `config/weights.sha256` and `config/weights.blob` | 208 sha256 and 214 blobs match |
-| R2 | `fit` | boots `default` (16,384 x 16) and `agent` (139,264 x 3) on the shipped pack, logging the boot budget line and device memory | both boot; device memory matches the control pack's |
+| R2 | `fit` | boots `default` (16,384 x 16) and `agent` (262,144 x 8 on one page pool) on the shipped pack, logging the boot budget line and device memory | both boot; device memory matches the control pack's |
 | R1 | `hashes` | the shipped pack's hashes and cold 8K row, written into `gates/hashes.json` (the 16,384-token profiles cannot serve the 32K prompt) | |
 | R1 | `gate` | `recipe gate default`, then `agent`: conformance with its plants, hashes, nondeterminism, canary | all pass; resumed and evict need a second server and do not fit beside the first on one card |
 | R3 | `bench` | `recipe bench default optimised` on the shipped pack | `optimised` decides by the bar |
@@ -116,13 +138,15 @@ of about 75 s plus their cells, a bench); fit 5 min; hashes 10 min; gate 20 min;
 | step | result |
 | --- | --- |
 | R1 hashes | NVIDIA's pack at this pin reproduces the earlier one-GPU reference exactly, decode code `4e759dbd859c`, chat `764da77fbd3f` and cold 8K `fa345c10f631` (all 12 decode hashes); the shipped pack's `gates/hashes.json`: code `80a5e186a17c`, chat `9b016afeff58`, cold 8K `16307318fc93`, all 12 decode hashes equal to the GB10's `gates/spark.hashes.json`. Gate `default` and `agent`: 4 passed, 0 failed, 2 skipped (resumed and evict) |
-| R2 fit | `default` boots on both packs with `model 76.91 GiB; 16 streams at once, 0.85 GiB each at a 16384-token window, of 14.0 GiB left`, 79,870 MiB on the card, ready in 92-104 s. `optimised` serves `--parallel 12`: `model 79.55 GiB; 12 streams at once, 0.95 GiB each ... of 11.4 GiB left`, 82,564 MiB, no headroom. `agent` needed 13.41 GiB of 11.34 GiB with `TF_FLASHNEXT_CHUNK_SOLO=8192`; without it, `3 streams at once, 4.37 GiB each at a 139264-token window, of 14.0 GiB left`, 79,900 MiB (KNOWN-ISSUES) |
+| R2 fit | `default` boots on both packs with `model 76.91 GiB; 16 streams at once, 0.85 GiB each at a 16384-token window, of 14.0 GiB left`, 79,870 MiB on the card, ready in 92-104 s. `optimised` serves `--parallel 12`: `model 79.55 GiB; 12 streams at once, 0.95 GiB each ... of 11.4 GiB left`, 82,564 MiB, no headroom. `agent`, at its earlier 139,264 x 3, needed 13.41 GiB of 11.34 GiB with `TF_FLASHNEXT_CHUNK_SOLO=8192`; without it, `3 streams at once, 4.37 GiB each at a 139264-token window, of 14.0 GiB left`, 79,900 MiB (KNOWN-ISSUES) |
 | R3 ABBA | shipped pack, 550 W cap (earlier reference: 600 W), 2 rounds, bar 3%, control drift up to 2.4%. `default`: code x1 266.6, chat x1 185.3, cold 8K 8,254, code x16 1,345.6, chat x16 1,199.5 tok/s (the earlier reference on NVIDIA's pack at 600 W: code x1 291, cold 8K 8,818). `optimised` (x12) against `default`: code x1 -0.9%, chat x1 +0.2%, cold 8K +4.6%, code x12 +8.0%, chat x12 +12.1%; the kit's verdict reads `worse` only from the x16 cells, which 12 streams serve queued (-9.6%, -20.8%). By the first cell `optimised` does not win at one stream |
 | R4 soak | STABLE: `recipe soak default` on the shipped pack, 30 minutes, 4 workers, 2,325 requests with 262 cancels, 0 failed, 7 probes with constant hashes, free memory never below 14.78 GiB, peak 92 C at a 550 W cap. Two earlier 30-minute soaks read UNSTABLE only from their cold 32K probes, which a 16,384-token window refuses (KNOWN-ISSUES); each also had 0 failed requests |
 
 ## Still open
 
-- `optimised` and `agent` have not run a soak, and the `optimised` levers have not been attributed one by one.
+- `optimised` has not run a soak, and its levers have not been attributed one by one. `agent` soaked on a GB10 only.
+- `agent`'s 262,144 x 8 pool has not booted on a 6000: its page count, an ABBA of paged against fixed windows on
+  the 6000, a soak and a 262K session there are open, and need a bundle of tree `0272db7d`.
 - The `drafts-greedy` arm has not been benched.
 - A follow-up, not wired: the FP8 recipe's 0084 (`TF_FLASHNEXT_PLE_EARLY`, `TF_FLASHNEXT_ROUND_TURN`), which this
   series does not carry.

@@ -17,7 +17,7 @@ greedy code (nvidia's pack: 4.41 on a 6000), so the layout is right.
 
 On one RTX PRO 6000 a 30-minute `recipe soak default` of the shipped weights is STABLE (2,325 requests, 262
 cancels, 0 failed, probe hashes constant, free memory at least 14.78 GiB); the card peaked at 92 C at a 550 W cap.
-`optimised` has not run a soak; `agent` has soaked on a GB10 only (RUNBOOK S8).
+`optimised` has not run a soak; `agent` has soaked on a GB10 only (RUNBOOK S8 and D6).
 
 ## `optimised` serves 12 streams, `agent` drops `TF_FLASHNEXT_CHUNK_SOLO`
 
@@ -34,6 +34,15 @@ S8 and S9 ran on a GB10, where a state read from NVMe lands in the same memory t
 host memory (`KEPT=host`) and crosses PCIe at admission; an earlier recipe saw 0.7-1 GiB/s restores under WSL2. To
 confirm on one 6000, with a bundle rebuilt for `patches/disk` (the published one predates it): S8's and S9's turn-2 TTFT (cold, RAM, NVMe after eviction and after restart), the restore
 GiB/s, and a 30-minute `recipe soak agent` with the tier on.
+
+## `agent`'s shared pool is measured on a GB10, not yet on a 6000
+
+`agent` puts every stream on one K/V page pool (`TF_FLASHNEXT_KV_PAGES=256`, `_ALL=1`, `patches/dynkv`). On one GB10
+it gives the same tokens as fixed windows, an ABBA within 0.3%, and it queues requests the pool cannot hold yet
+([CAPACITY](CAPACITY.md#one-shared-kv-pool-agent)). The 6000's page count (about 1,900, estimated from the GB10's
+page size), its own ABBA, and a soak need a 6000 run with a bundle of tree `0272db7d`. A request reserves its
+reply limit up front, so a client that sends a large `max_tokens` holds that many tokens of pages until it ends;
+`--max-tokens` (4,096) is the reservation when a client sends none.
 
 ## Cold 32K needs a window over 32K
 

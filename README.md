@@ -90,7 +90,7 @@ environment a profile starts with.
 | --- | --- | --- |
 | **`default`** | 16,384 x 16 streams, upstream behaviour | general serving; the gated, soaked profile |
 | `optimised` | 16,384 x 12 streams, every one-GPU lever on | faster prefill and batches of up to 12; not soaked yet |
-| `agent` | 139,264 x 3 streams, a 32 GiB prompt cache in host RAM, prompt states on disk | coding agents that need a long window; point `--prompt-cache-disk` at an NVMe ([how](qwen-flash-abliterated-rtx6000x1/README.md#prompt-states-on-nvme)); soaked on a GB10 only |
+| `agent` | 262,144-token window x 8 streams on one shared K/V pool, a 32 GiB prompt cache in host RAM, prompt states on disk | coding agents that need a long window: short chats cost little, one session can grow to the whole window; point `--prompt-cache-disk` at an NVMe ([how](qwen-flash-abliterated-rtx6000x1/README.md#prompt-states-on-nvme)); soaked on a GB10, not yet on a 6000 |
 
 The levers, their evidence and what is still open are in the recipe's [README](qwen-flash-abliterated-rtx6000x1/README.md)
 and [KNOWN-ISSUES](qwen-flash-abliterated-rtx6000x1/docs/KNOWN-ISSUES.md).

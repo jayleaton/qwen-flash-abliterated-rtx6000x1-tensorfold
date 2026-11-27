@@ -52,13 +52,14 @@ class Profiles_(unittest.TestCase):
         self.assertEqual(rendered.env, {"TF_FLASHNEXT_KEPT": "device"})
         self.assertEqual(rendered.experiments, {})
 
-    def test_the_agent_profile_widens_the_window_and_thins_the_streams(self):
+    def test_the_agent_profile_serves_the_native_window_from_one_page_pool(self):
         rendered = profiles.render(plan(), "agent", {})
-        self.assertEqual(rendered.args[:4], ["--context", "139264", "--parallel", "3"])
+        self.assertEqual(rendered.args[:4], ["--context", "262144", "--parallel", "8"])
         self.assertIn("--prompt-cache-gib", rendered.args)
         self.assertEqual(rendered.args[rendered.args.index("--prompt-cache-disk") + 1], "prompt-cache")
         optimised = dict(profiles.render(plan(), "optimised", {}).env)
         del optimised["TF_FLASHNEXT_CHUNK_SOLO"]
+        optimised |= {"TF_FLASHNEXT_KV_PAGES": "256", "TF_FLASHNEXT_KV_PAGES_ALL": "1"}
         self.assertEqual(rendered.env, optimised)
 
     def test_the_ship_profile_sets_every_expected_lever(self):
