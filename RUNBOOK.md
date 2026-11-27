@@ -27,7 +27,7 @@ tok/s from it predicts nothing on a 6000, and the levers are decided only by the
 | S4 | Spark hashes | one-GPU token hashes: the control pack must reproduce `gates/control.hashes.json` (the old recipe's tp1 reference, its own prompt set from the old repo's release); the shipped pack's hashes then land in `gates/hashes.json` `expected`, with the cold rows the bench's `cold.*` cells need. The `default` profile pins `TF_FLASHNEXT_KEPT=device` so the reference matches main's memory layout; upstream now defaults `TF_FLASHNEXT_READOUT_FUSED` on for prompt passes — if a hash moves, isolate with `=0` before calling it a regression |
 | S5 | gate | `recipe gate default` then `agent`: conformance with every plant, hashes, nondeterminism, canary |
 | S6 | soak | `recipe soak default`, 30 minutes of mixed traffic with cancels; the Spark's own floors stand in for the card profile's until the 6000 run |
-| S7 | refusal/quality | the pack is abliterated: run the refusal cells against the control pack and the shipped pack side by side and record what changed; the quality bars (MMLU-200, tool chains) run once the eval harness lands and names its `[gates]` bars |
+| S7 | refusal/quality | the recipe's `eval/` harness scores any served endpoint deterministically: AdvBench harmful refusal (50 prompts), XSTest benign over-refusal (30), MMLU (200), HumanEval (40), both packs served with identical flags. The control row is already measured (GB10, `eval/REPORT.md`): refusal 100%, over-refusal 3.33%, MMLU 89.00%, HumanEval 90.00%; the shipped pack's row is the pending half, and the `[gates]` bars land with it |
 
 Results (the stream that ran each step fills its row; a receipt path or PR, never a host):
 
