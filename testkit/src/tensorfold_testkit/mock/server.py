@@ -97,8 +97,9 @@ class Mock:
         self.http.server_close()
 
     def refusal(self, body: dict, words: int) -> str | None:
-        if body.get("n", 1) != 1:
-            return "n must be 1; multiple choices are not supported"
+        n = body.get("n")
+        if n is not None and (type(n) is not int or not 1 <= n <= 16):
+            return "n must be an integer between 1 and 16"
         if body.get("top_logprobs") is not None and not body.get("logprobs"):
             return "top_logprobs requires logprobs: true"
         penalty = body.get("presence_penalty")

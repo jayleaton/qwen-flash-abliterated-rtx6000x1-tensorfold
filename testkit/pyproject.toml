@@ -1,6 +1,6 @@
 [project]
 name = "tensorfold-testkit"
-version = "0.4.0"
+version = "0.4.1"
 description = "Shared recipe test framework: served gates and a stand-in server; ABBA bench, soak and receipts follow"
 requires-python = ">=3.11"
 license = "Apache-2.0"
