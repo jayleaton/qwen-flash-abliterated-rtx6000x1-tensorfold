@@ -50,5 +50,6 @@ lines:
 	python3 scripts/max_lines.py $(MAX_LINES)
 
 whitespace:
-	git diff --check $$(git merge-base $(BASE) HEAD)
-	git diff --check --cached
+	# A recipe's *.patch files are format-patch bytes the engine tree check pins: never edited, so never checked.
+	git diff --check $$(git merge-base $(BASE) HEAD) -- . ':(exclude)*.patch'
+	git diff --check --cached -- . ':(exclude)*.patch'

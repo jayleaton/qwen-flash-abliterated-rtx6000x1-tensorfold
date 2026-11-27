@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jay Leaton <58495321+jayleaton@users.noreply.github.com>
+Date: Fri, 27 Nov 2026 07:36:17 +0700
+Subject: [PATCH 3/3] tests: re-pin the serving sources the loader series
+ changes
+
+---
+ zig/tests/fixtures/gradient-serving.tsv | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/zig/tests/fixtures/gradient-serving.tsv b/zig/tests/fixtures/gradient-serving.tsv
+index 20bb2056e..5f073c228 100644
+--- a/zig/tests/fixtures/gradient-serving.tsv
++++ b/zig/tests/fixtures/gradient-serving.tsv
+@@ -121,7 +121,7 @@ zig/src/families/flashnext/cuda_batch.zig	318500bd273d45ed2a2021252ee447e0a25a39
+ zig/src/families/flashnext/cuda_batch_state.zig	a2ec8aa19551587fc034fe2791493e95a502e37e5f78e0cfd3c360308bf65a52	raw	y and moe_f32 take one spare row for a --tp 2 prompt pass's padded rank block; replies unchanged; #XXXX: the default prompt chunk is 3,072 rows; the shared pass takes the pooled n-gram gather first (TF_FLASHNEXT_GATHER_EARLY); replies unchanged; y and moe_f32 take one spare row for a --tp 2 prompt pass's padded rank block; replies unchanged; #XXXX: the default prompt chunk is 3,072 rows; #3368 (the scratch sized by the checkpoint's slot count and shared width; default-shape replies unchanged); y and moe_f32 take one spare row for a --tp 2 prompt pass's padded rank block; replies unchanged; #XXXX: the default prompt chunk is 3,072 rows; the shared pass takes the pooled n-gram gather first (TF_FLASHNEXT_GATHER_EARLY); replies unchanged; D1040 (opt-in TF_FLASHNEXT_GRAPH_TAIL)
+ zig/src/families/flashnext/cuda_collective.zig	bf475ffb46b3440fcad280f46e34de25cd22b79ed96a0b587d0869e7451d3519	raw	adds sumBlock, the in-place FP32 reduce-scatter with sum's peer check, deadline and abort; no served change on its own
+ zig/src/families/flashnext/cuda_compare_main.zig	ade014dfec88f0b386076cdc093ea20710d7bf36c33ff566ca2caf472064695b	raw	main dfd9ac5ef4 (#2585: the TF_FLASHNEXT_* startup check), c274b45cc1 (the check through the flashnext module)
+-zig/src/families/flashnext/cuda_config.zig	566b351b5fbb5a373e48e4e71486301bf362e9d9d6edfb600aa8e6484bcf17f0	raw	#3368 (num_experts_per_tok and shared_expert_intermediate_size select a supported shape, any other refused by name; default-shape replies unchanged)
++zig/src/families/flashnext/cuda_config.zig	f853288868051ae09dc740fdf9f564bbcb36024a18ba6d7e22bd4c3d24764a9a	raw	#3368 (num_experts_per_tok and shared_expert_intermediate_size select a supported shape, any other refused by name; default-shape replies unchanged); a quant_algo NVFP4 config with an ignore list checked as the per-layer layout (cuda_config_uniform.zig); MIXED_PRECISION unchanged
+ zig/src/families/flashnext/cuda_draft_affine.zig	2ec22bec1a38a6d2cc7e16a65d41deeb452d1a679661351a473652b5f39f2da8	raw
+ zig/src/families/flashnext/cuda_embed.zig	f52cee06a9bf820554b5443e9278be7bedf3381ff6d2529902b40c6699de4518	raw
+ zig/src/families/flashnext/cuda_embed_main.zig	2b596788cccd420368fe803676e8ad45a4f0bf7a115a6cd8cbde9151cbf1e597	raw
+@@ -141,7 +141,7 @@ zig/src/families/flashnext/cuda_media_test.zig	4292f8f7c8f8bf4efd0dfaaa5a6c63e11
+ zig/src/families/flashnext/cuda_mix.zig	248a2a86b3f377531f5b713c408ba99f73604510f4afe34ffae52615d5863c2c	raw
+ zig/src/families/flashnext/cuda_mixed_experts.zig	3141549f03157a6bc02c0713f1a2f73bb4a15f185a5da8ecfb14be42185b3cec	raw	#3368 (the shared expert's width read from its gate_proj rows, widths other than 640 and 1280 refused by name; default-shape replies unchanged)
+ zig/src/families/flashnext/cuda_mlp.zig	8224a28003487487e69eb669be11eaafafdb1ce0bc4c5e57024cef0a6a29e66f	raw
+-zig/src/families/flashnext/cuda_modelopt_experts.zig	de779975629770b33ad5c0ebf9aa6e334f7a98f173a452d2b7c33b50a08d968e	raw
++zig/src/families/flashnext/cuda_modelopt_experts.zig	7c2f534e568a73786b07d1ffa75d836eb2ffe9aa148e962b8cc0b9091f7d1348	raw	fused BF16 experts quantized at load to .fp8g (cuda_fused_experts_load.zig); per-expert layers unchanged
+ zig/src/families/flashnext/cuda_moe.zig	87ba75343c1d228800ed9fcc6d933f1175df172c008e14a8c7a64ff7011bed44	raw
+ zig/src/families/flashnext/cuda_mtp.zig	acd317a915c6d25b2be1088a745fa61a322af3d7b01333fed55ceaca7099f827	raw	main 80e0fd72c (#2753: non-finite draft rows refused by name; finite rows unchanged), dfd9ac5ef4 (#2585: TF_FLASHNEXT_* read through platform/environment.zig, malformed text refused at startup; valid values keep their meaning), #2927, main 3a56d4eb92 (one added line, the test import of cuda_mtp_load.zig so its loader tests run), the MTP rows' row best split over 32 blocks a row (fn_row_best_max, fn_row_best_sum), fn_row_best's bits, headBytes counts the split's scratch (split_bytes); #3368 (the MTP layer's shared width must be the main layers' or the routed width, refused by name otherwise; default-shape replies unchanged); #3368 (the MTP layer's shared width must be the main layers' or the routed width, refused by name otherwise; default-shape replies unchanged); main 80e0fd72c (#2753: non-finite draft rows refused by name; finite rows unchanged), dfd9ac5ef4 (#2585: TF_FLASHNEXT_* read through platform/environment.zig, malformed text refused at startup; valid values keep their meaning), #2927, #3368 (the MTP layer's shared width must be the main layers' or the routed width, refused by name otherwise; the head takes the engine's widths, so config.json has one reader; default-shape replies unchanged); #3368 (the MTP layer's shared width must be the main layers' or the routed width, refused by name otherwise; the head takes the engine's widths, so config.json has one reader; default-shape replies unchanged); the head's byte estimate prices the shared expert at its gate_proj's width, so a 1280-wide one counts its 3,072,000 extra bytes (placement's 1 GiB allowance unchanged); #4529 (opt-in cache-only MTP prefill; default off)
+ zig/src/families/flashnext/cuda_mtp_check.zig	fcaa43ec820f2c7848eb67d1b88ad911b4c7dfa21c79cf4e0dc16078b3ab99a8	raw	main dfd9ac5ef4 (#2585: TF_FLASHNEXT_* read through platform/environment.zig, malformed text refused at startup; valid values keep their meaning); probeServed and windowCheck sweep every width the buffers hold against their one-token steps
+@@ -156,7 +156,7 @@ zig/src/families/flashnext/cuda_projection.zig	42e553d337ee5b2acd2146018a4db96bc
+ zig/src/families/flashnext/cuda_projection_load.zig	8c415a070d7dada62f98646bc72c7b7cc29b3ac018a6638684d23a16d959681e	raw
+ zig/src/families/flashnext/cuda_projection_load_test.zig	bcbd6ed2753c863916a2163d1cf72544429c776365702e860f52cd22449354a1	raw
+ zig/src/families/flashnext/cuda_prompt.zig	143b0c20297ae91432f2e5f3246bc4efbf1c10fcbc1102d24d2bfc1fb6e1ee7f	raw	TF_FLASHNEXT_FUSED_SPLIT read at engine init; sets only its own native_lane; #3368 (the widths config.json selects size the scratch, a layer's shared rows checked against them; default-shape replies unchanged); TF_FLASHNEXT_FUSED_SPLIT read at engine init; sets only its own native_lane; D1040 (opt-in TF_FLASHNEXT_GRAPH_TAIL)
+-zig/src/families/flashnext/cuda_prompt_load.zig	a5629649a64150b795aee8239ad98462836efaa106e5952fcebc0066b8306a7e	raw
++zig/src/families/flashnext/cuda_prompt_load.zig	409e75c3e1aacb98f5f32533f1cd1f3a4f2388d76938d3e38b5f68a6f74a28d6	raw	the fused experts names select the modelopt MLP load; other layers unchanged
+ zig/src/families/flashnext/cuda_prompt_main.zig	2543cd166dc80cd97b1ca1ce930a6150f9d36b52ee231744606f83bf54f0669d	raw	main dfd9ac5ef4 (#2585: the TF_FLASHNEXT_* startup check), c274b45cc1 (the check through the flashnext module)
+ zig/src/families/flashnext/cuda_prompt_step.zig	df47388a65fd1b79d91418cde75857cc00bde38dd543e82689eabd71a72368fa	raw	#3368 (the MLX row write-back's 10 and 11 named by the default slot count; its arguments unchanged)
+ zig/src/families/flashnext/cuda_prompt_wt.zig	b78d85a90c729f2f558505e8ef1784c238e3f0ee171a61b5bcfe549cc0834daa	raw	#3467: after load a shard drops its page cache except the n-gram ranges, and the sweep reaches nested shards; tensors and replies are unchanged#3413 (an MLX affine read-out refuses TF_FLASHNEXT_READOUT_FUSED=1 by name; unchanged when unset); the fused read-out is on by default, and only an explicit 1 is refused
+-- 
+2.56.0
+

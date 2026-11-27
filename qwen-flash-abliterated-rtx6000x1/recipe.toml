@@ -19,13 +19,14 @@ port = 8090
 rev = "cc025f171e376c64be550ded0e0fdcdb6b704b36"
 testkit = ">=0.1,<1"
 
-# Upstream main, no patch series yet: the one-GPU profile is upstream's behaviour. The loader series for the
-# shipped abliterated pack's shard layout and the TP1 lane series land here as they arrive.
+# Upstream main plus the loader series for the shipped pack's ModelOpt config (quant_algo NVFP4 with an
+# ignore list, not MIXED_PRECISION per-layer rows) and its fused BF16 MTP experts, quantized on the host at
+# load into the FP8 form the head already serves. The TP1 lane series stacks here when it lands.
 [engine.cuda]
 repo = "https://github.com/ashhart/TensorFold.git"
 rev = "1a3a10d9194c58decd228ce3084f1ccae885a26a"  # upstream main, 2026-11-26
-tree = "419130d8a28a1d534230d4802176076eee24756a"
-series = []
+tree = "6048b30504a4625d16363199634a3bac60dc4b6e"
+series = ["patches/loader"]
 
 # vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
 # GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark.
