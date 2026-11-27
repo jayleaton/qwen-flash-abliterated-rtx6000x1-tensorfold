@@ -8,9 +8,10 @@ arms that measure its expected levers. The kit this repository hosts runs the re
 
 - **Shipped weights:** [`dealignai/Qwen3.8-Flash-Next-ABLITERATED-NVFP4`](https://huggingface.co/dealignai/Qwen3.8-Flash-Next-ABLITERATED-NVFP4)
   at `be794b990578ef3031eccf9f28e675a289a09ee9` (ModelOpt NVFP4, 208 LFS files; `config/weights.sha256` and
-  `config/weights.blob` hold the Hub's hash of each). The pack keeps the control pack's expert layout but
-  stores per-layer expert shards (`layer-*-experts-*.safetensors`), BF16 non-expert shards and FP8 PLE shards,
-  a layout the upstream loader does not read yet: the loader series lands in `series` when it arrives.
+  `config/weights.blob` hold the Hub's hash of each). The pack states its quantization as `quant_algo: NVFP4`
+  with an ignore list (not the control pack's `MIXED_PRECISION` per-layer rows) and stores its MTP experts
+  fused in BF16; the `patches/loader` series reads both, host-quantizing the fused experts into the FP8 form
+  the head already serves. The Spark's fit step confirms the load on the GPU.
 - **Control weights:** [`nvidia/Qwen3.8-Flash-Next-NVFP4`](https://huggingface.co/nvidia/Qwen3.8-Flash-Next-NVFP4)
   at `fc694b54fb0174e0913e6adf86691ef85a4ead47` (`config/control.*`), the pack the old recipe measured. The
   migration must reproduce the old recipe's one-GPU token hashes on it (`gates/control.hashes.json`); the kit

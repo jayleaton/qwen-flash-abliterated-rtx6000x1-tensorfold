@@ -8,10 +8,11 @@ Every step runs the kit from a checkout of this repository (`bin/recipe ... --ki
 `dev:`), or from a `recipe kit` bundle for clean receipts — the bundle's kit release carries the pinned
 revision's `REVISION` file. `ENGINE` below is a prepared engine directory, `MODEL` a downloaded pack.
 
-The integration order for the staged work: the **loader series** first (the shipped pack's shard layout does
-not load without it), then the **TP1 lane series**, re-running `recipe update-engine` and `recipe prepare`
-after each; the **eval harness** adds the quality bars to `[gates]`. Each arrives as its own pull request
-with its series in `[engine.cuda]` and its levers as measured rows.
+The integration order for the staged work: the **loader series** landed first (the shipped pack's stated
+quantization and fused MTP experts did not load without it), the **TP1 lane series** stacks on it, re-running
+`recipe update-engine` and `recipe prepare` after each; the **eval harness** adds the quality bars to
+`[gates]`. Each arrives as its own pull request with its series in `[engine.cuda]` and its levers as measured
+rows.
 
 ## 1. The Spark (approved)
 
@@ -22,7 +23,7 @@ tok/s from it predicts nothing on a 6000, and the levers are decided only by the
 | --- | --- | --- |
 | S1 | verify | the pin's own checks on the prepared tree: `zig fmt --check`, `tools/pr_check.py`, `zig build test test-kernel-contract test-golden`; the kernel contracts (the `qmmf-prompt-mx-contract` rc 139 on sm_120 is open; see the recipe's KNOWN-ISSUES) |
 | S2 | prepare for sm_121 | `recipe prepare` with the Spark build target (`-Dgpu=spark`), xgrammar addon built; the sm_120 build happens later on the 6000 |
-| S3 | fit | once the loader series is in: the shipped pack loads, its digest check passes on both packs' loaders, and the boot-time CUDA budget admits `--parallel 16` at the default window |
+| S3 | fit | the shipped pack loads through the `patches/loader` series: its digest check passes on both packs' loaders, and the boot-time CUDA budget admits `--parallel 16` at the default window |
 | S4 | Spark hashes | one-GPU token hashes: the control pack must reproduce `gates/control.hashes.json` (the old recipe's tp1 reference, its own prompt set from the old repo's release); the shipped pack's hashes then land in `gates/hashes.json` `expected`, with the cold rows the bench's `cold.*` cells need |
 | S5 | gate | `recipe gate default` then `agent`: conformance with every plant, hashes, nondeterminism, canary |
 | S6 | soak | `recipe soak default`, 30 minutes of mixed traffic with cancels; the Spark's own floors stand in for the card profile's until the 6000 run |

@@ -2,13 +2,14 @@
 
 Ported rows are **measured on the old pin**; the migration rows are this recipe's, open now.
 
-## The shipped weights do not load yet
+## The shipped weights load through the `patches/loader` series
 
-The abliterated pack keeps the control pack's quantization (ModelOpt NVFP4, `hf_quant_config.json`) but
-stores per-layer expert shards (`layer-NNNNN-experts-XXXX-YYYY.safetensors` with `.complete.json` sidecars),
-BF16 non-expert shards (`model-bf16-*`) and FP8 PLE shards (`model-plefp8-*`). The upstream loader reads the
-control pack's `model-0000N-of-000M` layout, not this one. The loader series lands in `[engine.cuda] series`
-when it arrives; until then the recipe serves the control pack.
+The abliterated pack keeps the control pack's quantization values (ModelOpt NVFP4) but states them as
+`quant_algo: NVFP4` with an ignore list, and stores its MTP experts fused in BF16; upstream main refuses both.
+The two loader patches teach the config check the stated layout and host-quantize the fused experts into the
+FP8 form the head already serves (nvidia's own layout, at FP8 rounding noise). Served tokens do not depend on
+the draft head, so the rounding can change acceptance, never tokens; the Spark's fit step confirms the load
+and its `drafted == plain` check on the GPU.
 
 ## Not soak-tested
 
