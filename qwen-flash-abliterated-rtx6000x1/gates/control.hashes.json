@@ -1,11 +1,11 @@
 {
  "schema": 1,
- "note": "the reference this migration must reproduce: the old recipe's one-GPU profile on the control pack",
+ "note": "the reference this pin reproduces: an earlier one-GPU recipe's profile on the control pack",
  "control": {
   "weights": "nvidia/Qwen3.8-Flash-Next-NVFP4",
   "rev": "fc694b54fb0174e0913e6adf86691ef85a4ead47",
   "sha256": "config/control.sha256",
-  "old_recipe": "qwen-flash-nvfp4-rtx6000-tensorfold at 4240358, profile config/profiles/tp1",
+  "old_recipe": "an earlier, unpublished one-GPU NVFP4 recipe, profile tp1",
   "engine": {
    "repo": "https://github.com/ashhart/TensorFold.git",
    "rev": "924d50a9d409e774f8c527f685993c5f168a805c",
@@ -13,7 +13,7 @@
    "patches": "cuda 0001-0015"
   },
   "serve": ["--context", "16384", "--parallel", "16"],
-  "prompts": "the old recipe's fixed prompt set (its release tarball); not this recipe's gates/hashes.json prompts"
+  "prompts": "the earlier recipe's fixed prompt set; not this recipe's gates/hashes.json prompts"
  },
  "greedy": {
   "decode.code": "4e759dbd859c1b2f2640b1d119e4545aa9cc826dda59cd256d2c94d63119958f",

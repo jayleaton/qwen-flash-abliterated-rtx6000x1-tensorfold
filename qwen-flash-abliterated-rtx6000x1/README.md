@@ -1,8 +1,8 @@
 # Qwen3.8 Flash Next, abliterated NVFP4, on one RTX PRO 6000 with TensorFold
 
 One `recipe.toml` plus what is the model's own: its weights' checksums, its gate tables, its profiles and the
-arms that measure its expected levers. The kit this repository hosts runs the rest (`recipe fetch`, `prepare`,
-`serve`, `gate`, `bench`, `soak`); see the repository [README](../README.md) for how the two fit together.
+arms that measure its levers. The kit this repository hosts runs the rest (`recipe fetch`, `prepare`, `serve`,
+`gate`, `bench`, `soak`); start from the repository [README](../README.md) for the results and the quick start.
 
 ## What it serves
 
@@ -11,39 +11,38 @@ arms that measure its expected levers. The kit this repository hosts runs the re
   `config/weights.blob` hold the Hub's hash of each). The pack states its quantization as `quant_algo: NVFP4`
   with an ignore list (not the control pack's `MIXED_PRECISION` per-layer rows) and stores its MTP experts
   fused in BF16; the `patches/loader` series reads both, host-quantizing the fused experts into the FP8 form
-  the head already serves. The Spark's fit step confirms the load on the GPU.
+  the head already serves.
 - **Control weights:** [`nvidia/Qwen3.8-Flash-Next-NVFP4`](https://huggingface.co/nvidia/Qwen3.8-Flash-Next-NVFP4)
-  at `fc694b54fb0174e0913e6adf86691ef85a4ead47` (`config/control.*`), the pack the old recipe measured. The
-  migration must reproduce the old recipe's one-GPU token hashes on it (`gates/control.hashes.json`); the kit
-  holds one weight set, so the control pack is this recipe's own recorded addition.
+  at `fc694b54fb0174e0913e6adf86691ef85a4ead47` (`config/control.*`), the pack the earlier one-GPU reference
+  measured. This pin reproduces that reference's token hashes on it exactly (`gates/control.hashes.json`); the
+  kit holds one weight set, so the control pack is this recipe's own recorded addition.
 
 ## Where it came from
 
-This recipe migrates the private `qwen-flash-nvfp4-rtx6000-tensorfold` recipe (at `4240358`) into the kit: its
-one-GPU profile (`config/profiles/tp1` there) is the `default` profile here, rendered to the same serve
-arguments; its measured one-GPU rows are ported in [docs/PERFORMANCE.md](docs/PERFORMANCE.md) and
-[docs/CAPACITY.md](docs/CAPACITY.md) with a *measured on the old pin* label; what is still open is ported in
-[docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md). The old repository is unchanged and stays the record of its own
-numbers. The operations that finish this migration are in the repository's [RUNBOOK](../RUNBOOK.md).
+The `default` profile is the one-GPU profile of an earlier, unpublished NVFP4 recipe for this card, rendered to
+the same serve arguments. That recipe's measured rows are kept in [docs/PERFORMANCE.md](docs/PERFORMANCE.md) and
+[docs/CAPACITY.md](docs/CAPACITY.md) with a *measured on the old pin* label; this recipe's own numbers are in the
+repository [README](../README.md) and [RUNBOOK](../RUNBOOK.md), and what is still open in
+[docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md).
 
 ## Profiles
 
 | profile | serves | note |
 | --- | --- | --- |
-| `default` | one GPU, `--context 16384 --parallel 16`, `KEPT=device` | the old `tp1` port, every lane off, and the reproduction reference: the control pack must give the old recipe's hashes; `KEPT=device` pins main's memory layout for that check |
-| `optimised` | the ship profile at `--parallel 12`: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | the TP1 series' proposed default; **the intended ship profile once measured** |
-| `agent` | `optimised` less `CHUNK_SOLO` at `--context 139264 --parallel 3`, prompt cache 32 GiB in host RAM | the coding-agent window, where agents stop compacting and mis-quoting `edit` text |
+| `default` | one GPU, `--context 16384 --parallel 16`, `KEPT=device` | the shipped profile: every lane off, gated and soaked, and the reproduction reference; `KEPT=device` pins main's memory layout for that check |
+| `optimised` | `--parallel 12`: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | every one-GPU lever: cold 8K +4.6%, x12 +8% code and +12% chat over `default`, one stream flat; not soaked yet |
+| `agent` | `optimised` less `CHUNK_SOLO` at `--context 139264 --parallel 3`, prompt cache 32 GiB in host RAM | the coding-agent window, where agents stop compacting and mis-quoting `edit` text; gated, not soaked yet |
 
 ## Levers and switches
 
-Every lever the `optimised` profile sets — and so every lever the `agent` profile inherits — is **expected,
-not yet proven exact at TP1**: the numbers behind them come from the old recipe's session, the lever notes
-or the kept series' own triage, none measured on this pin and these weights. The [switch
-policy](../../docs/switch-policy.md) lets a served profile set only product rows, so each carries its
-evidence in its reason; the GPU run hash-gates first, then one ABBA against `default` at the 3% bar decides
-the ship profile — a loser drops off it, a winner stays.
+The `optimised` stack as a whole is measured on one 6000 against `default` (the RUNBOOK's R3 row), with the same
+tokens: the bench holds every cell to the recorded token hash, and `agent`, which carries every lever but
+`CHUNK_SOLO`, passes the hash gate. Each lever's own share is not measured: the numbers below come from earlier
+recipes' sessions on other pins and cards. The [switch policy](../docs/switch-policy.md) lets a served profile set
+only product rows, so each carries its evidence in its reason; a leave-one-out ABBA at the 3% bar would decide each
+lever alone.
 
-| switch | on | expected from | proven at TP1? |
+| switch | on | expected from | measured alone at TP1? |
 | --- | --- | --- | --- |
 | `TF_FLASHNEXT_GDN_SPLIT` | `optimised` | **measured** +9.7% cold 32K on one 6000 on the old pin, exact ([PERFORMANCE](docs/PERFORMANCE.md)) | not on this pin |
 | `TF_FLASHNEXT_CHUNK_SOLO=8192` | `optimised` | +15-23% solo prefill on a 6000-class card | no |
@@ -67,20 +66,22 @@ states in pinned host memory by default (`KEPT=host`).
 
 ## Gates
 
-`gates/hashes.json` is empty on purpose: it waits on the first GPU run, which records the shipped pack's
-hashes and the cold rows the bench's `cold.*` cells need. Until then `gates/control.hashes.json` holds the
-control reference the migration must reproduce, and `gates/conformance.json` is the conformance profile
-upstream's `tools/conformance.py` runs against the served window. The refusal and quality side has its own
-harness in [`eval/`](eval/README.md): deterministic suites scored against any served endpoint, both packs
-with identical flags, aggregates only in the committed [report](eval/REPORT.md) — the control row is measured,
-the shipped pack's is the pending half of the RUNBOOK's refusal/quality step.
+`gates/hashes.json` holds the shipped pack's token hashes on one 6000 and the cold 8K row the bench's `cold.*`
+cell needs; `gates/spark.hashes.json` holds the same prompts' hashes on a GB10 (equal), and
+`gates/control.hashes.json` the earlier reference on the control pack, which this pin reproduces.
+`gates/conformance.json` is the conformance profile upstream's `tools/conformance.py` runs against the served
+window. The refusal and quality side has its own harness in [`eval/`](eval/README.md): deterministic suites scored
+against any served endpoint, both packs with identical flags, aggregates only in the committed
+[report](eval/REPORT.md).
 
 ## Run
 
+From the repository root (`recipe` is `bin/recipe`):
+
 ```sh
-recipe prepare --recipe qwen-flash-abliterated-rtx6000x1 ENGINE     # fetch the pin, apply the series, build
-recipe check --recipe qwen-flash-abliterated-rtx6000x1 --tree ENGINE  # rules C1-C9 against the pin
-recipe serve default ENGINE MODEL_DIR                                # check, render, launch
+recipe prepare --kit-dev --recipe qwen-flash-abliterated-rtx6000x1 ENGINE                # fetch the pin, apply the series, build
+recipe check --kit-dev qwen-flash-abliterated-rtx6000x1 --tree ENGINE                    # rules C1-C9 against the pin
+recipe serve --kit-dev --recipe qwen-flash-abliterated-rtx6000x1 default ENGINE MODEL    # check, render, launch
 ```
 
 A run from this repository's checkout passes `--kit-dev` and stamps its receipts `dev:`; the clean runs are

@@ -1,8 +1,9 @@
 # Capacity (ported, measured on the old pin)
 
-One RTX PRO 6000 Blackwell (96 GB) serving the control pack at `fc694b54`, as measured on the old
-`qwen-flash-nvfp4-rtx6000-tensorfold` recipe's session. The shipped abliterated pack stores the same
-quantized experts, so its weights are expected to take the same card memory; the GPU run confirms.
+One RTX PRO 6000 Blackwell (96 GB) serving the control pack at `fc694b54`, as measured in an earlier,
+unpublished one-GPU recipe's session. On this pin the shipped abliterated pack takes the same card memory:
+`default` reports `model 76.91 GiB` on both packs and holds 79,870 MiB at ready (the [RUNBOOK](../../RUNBOOK.md)'s
+R2 row).
 
 | window | streams that fit | why |
 | --- | --- | --- |
