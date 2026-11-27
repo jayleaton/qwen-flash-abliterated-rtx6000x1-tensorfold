@@ -7,9 +7,10 @@ the abliterated Qwen3.8 Flash Next NVFP4 recipe for one RTX PRO 6000, migrated f
 The kit itself is a plain copy of the private `tensorfold-recipe-kit` at `main` **759c8b4e0abc**
 (`759c8b4e0abcecdc4c67d1712310ca7aed6cf4ea`, 2026-11-26): not a fork, not a submodule, no history carried,
 and the upstream kit takes no pull request from here. Every change to this repository lands by pull request
-into `main`, which is protected. The recipe's `[kit] rev` names a commit of this repository: a run from a
-checkout of exactly that revision is clean, and a run from any other checkout passes `--kit-dev`, which
-stamps its receipts `dev:`.
+into `main`, which is protected. The recipe's `[kit] rev` names the commit of this repository that holds the
+recipe: a run from any checkout of this repository therefore passes `--kit-dev` and stamps its receipts
+`dev:`, and the clean runs are the ones a `recipe kit` bundle makes — it carries the `git archive` release of
+that commit's kit parts with a `REVISION` file, which the pin matches exactly.
 
 Because a real recipe is hosted here, the real-names scan covers the template parts only
 (`make names`, `TEMPLATE_PARTS` in the Makefile) and `make test` runs every hosted recipe's own tests with

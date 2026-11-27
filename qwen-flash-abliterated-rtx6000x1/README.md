@@ -66,5 +66,6 @@ recipe check --recipe qwen-flash-abliterated-rtx6000x1 --tree ENGINE  # rules C1
 recipe serve default ENGINE MODEL_DIR                                # check, render, launch
 ```
 
-Run the `recipe` command from a checkout of the kit revision the recipe pins; a run from any other checkout
-of this repository passes `--kit-dev` and stamps its receipts `dev`.
+A run from this repository's checkout passes `--kit-dev` and stamps its receipts `dev:`; the clean runs are
+the ones a `recipe kit` bundle makes, whose kit release carries the pinned revision's `REVISION` file. The
+GPU runs in the RUNBOOK bench and gate from a bundle for exactly that reason.

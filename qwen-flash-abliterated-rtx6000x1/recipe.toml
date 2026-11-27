@@ -16,7 +16,7 @@ port = 8090
 # The kit revision this recipe runs with (git rev-parse HEAD in this repository's checkout); any other
 # refuses to run. A hosted run from a later checkout passes --kit-dev and stamps its receipts dev.
 [kit]
-rev = "9392ce8f4afad556059d7d0b422ce1cb6f1c8afb"
+rev = "cc025f171e376c64be550ded0e0fdcdb6b704b36"
 testkit = ">=0.1,<1"
 
 # Upstream main, no patch series yet: the one-GPU profile is upstream's behaviour. The loader series for the
