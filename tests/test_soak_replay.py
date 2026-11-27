@@ -60,6 +60,10 @@ class Hardware(unittest.TestCase):
         }
         self.assertEqual(got, want)
 
+    def test_a_single_card_profile_carries_no_comm_env(self):
+        single = hardware.load("rtx6000x1")
+        self.assertEqual((single.ranks, single.transport, single.env), (1, "none", {}))
+
     def test_a_node_without_a_roce_link_refuses(self):
         with tempfile.TemporaryDirectory() as sys_root, self.assertRaises(hardware.ManifestError):
             node.resolve(hardware.load("gb10x2").env, Path(sys_root))

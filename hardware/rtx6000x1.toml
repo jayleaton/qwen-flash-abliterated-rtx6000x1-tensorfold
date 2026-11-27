@@ -1,0 +1,28 @@
+# One RTX PRO 6000 Blackwell card: one rank, no interconnect.
+[chip]
+arch = 120
+gpu = "sm_120"
+ranks = 1
+unified = false
+
+[comm]
+transport = "none"
+
+[memory]
+# Free memory on the card.
+floor_gib = 4.0
+gate_gib = "by-recipe"
+drop_caches = true
+
+[thermal]
+pause_c = 85
+resume_c = 75
+hard_c = 90
+hard_hold_s = 30
+
+[power]
+# The card's board power limit; a capped card's numbers do not compare.
+limit_w = 600
+
+[bench]
+note = "numbers from one host do not predict another host's: publish same-host ABBA only"
