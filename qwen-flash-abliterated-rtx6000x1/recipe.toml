@@ -105,11 +105,15 @@ settings = { TF_FLASHNEXT_KEPT = "host", TF_FLASHNEXT_GDN_SPLIT = "1", TF_FLASHN
 # The long-context agent window: 139,264 tokens is where coding agents stop compacting their history and
 # mis-quoting edit text; three streams fit on one card, the prompt cache 32 GiB in host RAM. Every lever
 # inherits the optimised profile, so every one of them is expected, not yet proven exact at TP1.
+# Every prompt state the RAM cache keeps is also written to prompt-cache-disk and read back after an eviction or a
+# restart (a GB10 revisits a 128K session from NVMe in 5.1 s against 157 s cold, same tokens). The default folder is
+# relative to where the server starts; point it at an NVMe with `-- --prompt-cache-disk DIR` (the last one wins).
+# The store takes at most 128 GiB, leaves 32 GiB of the disk free and writes at most 512 GiB a day.
 [profile.agent]
 inherits = "optimised"
 context = 139264
 parallel = 3
-flags = { prompt-cache-gib = 32 }
+flags = { prompt-cache-gib = 32, prompt-cache-disk = "prompt-cache", spill-gib = 128, learn-gib = 128, learn-min-free-gib = 32, learn-daily-gib = 512 }
 settings = { TF_FLASHNEXT_CHUNK_SOLO = false }
 
 # The one lever outside the ship profile: NVFP4 accepts fewer drafts than FP8, so 12 greedy drafts is

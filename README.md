@@ -30,6 +30,9 @@ For scale, the earlier one-GPU reference on NVIDIA's NVFP4 pack ran code x1 at 2
 **`optimised`** (every one-GPU lever on, 12 streams), ABBA against `default` on the same host: cold 8K **+4.6%**,
 code x12 **+8.0%**, chat x12 **+12.1%**, one stream flat (code -0.9%, chat +0.2%).
 
+**Long sessions from NVMe** (`agent`, measured on a GB10): revisit a 128K session in **5.1 s** from NVMe after a
+restart vs **157 s** cold (0.46 s from RAM), with the same reply tokens; 64K in 2.7 s vs 32.1 s.
+
 **Fit:** `default` loads `model 76.91 GiB` and holds 79,870 MiB of the card at ready, with 16 streams of 16,384
 tokens.
 
@@ -86,7 +89,7 @@ environment a profile starts with.
 | --- | --- | --- |
 | **`default`** | 16,384 x 16 streams, upstream behaviour | general serving; the gated, soaked profile |
 | `optimised` | 16,384 x 12 streams, every one-GPU lever on | faster prefill and batches of up to 12; not soaked yet |
-| `agent` | 139,264 x 3 streams, a 32 GiB prompt cache in host RAM | coding agents that need a long window; not soaked yet |
+| `agent` | 139,264 x 3 streams, a 32 GiB prompt cache in host RAM, prompt states on disk | coding agents that need a long window; point `--prompt-cache-disk` at an NVMe ([how](qwen-flash-abliterated-rtx6000x1/README.md#prompt-states-on-nvme)); soaked on a GB10 only |
 
 The levers, their evidence and what is still open are in the recipe's [README](qwen-flash-abliterated-rtx6000x1/README.md)
 and [KNOWN-ISSUES](qwen-flash-abliterated-rtx6000x1/docs/KNOWN-ISSUES.md).

@@ -56,6 +56,7 @@ class Profiles_(unittest.TestCase):
         rendered = profiles.render(plan(), "agent", {})
         self.assertEqual(rendered.args[:4], ["--context", "139264", "--parallel", "3"])
         self.assertIn("--prompt-cache-gib", rendered.args)
+        self.assertEqual(rendered.args[rendered.args.index("--prompt-cache-disk") + 1], "prompt-cache")
         optimised = dict(profiles.render(plan(), "optimised", {}).env)
         del optimised["TF_FLASHNEXT_CHUNK_SOLO"]
         self.assertEqual(rendered.env, optimised)

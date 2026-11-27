@@ -27,6 +27,7 @@ and levers are decided only by a 6000's ABBA.
 | S4 | hashes | one-GPU token hashes of the shipped pack, kept in `gates/spark.hashes.json` as a GB10 reference |
 | S5 | gate | `recipe gate default`: conformance with every plant, hashes, nondeterminism, canary |
 | S6 | soak | `recipe soak default`, mixed traffic with cancels |
+| S8 | prompt states on NVMe | `agent`'s flags on the GB10's NVMe: turn-2 TTFT of sessions grown in 16K-token turns to 32K, 64K and 128K, cold (a fresh `cache_salt`), from RAM, from disk after RAM evicted the state and from disk after a restart, each reply's token hash; then a 10-minute `recipe soak agent` with the store's size sampled every 30 s |
 | S7 | refusal/quality | the recipe's `eval/` harness against both packs served with identical flags: AdvBench harmful refusal (50 prompts), XSTest benign over-refusal (30), MMLU (200), HumanEval (40) |
 
 The GB10 runs served `--context 65536 --parallel 4` with every lever off; the `rtx6000x1` profiles' windows and
@@ -41,6 +42,7 @@ widths are the 6000's to measure.
 | S5 gate | conformance passes (drafted, repeat, concurrent, refusals with `n: 17`, cancel; 5/5 plants red); hashes 12/12, red with every seed moved; canary 3/3; nondeterminism passes: 16 copies, up to 16 open at once, one output a mode. resumed and evict need a second, cache-off server |
 | S6 soak | STABLE: 10 minutes, 4 workers, 133 requests of mixed kinds with 20 cancels and disconnects, 3 probes with constant hashes, 0 failed, free memory never below 18.05 GiB |
 | S7 refusal/quality | refusal 100% to 0%, over-refusal 3.33% to 0%, MMLU 89.0% to 85.0% (paired p = 0.057), HumanEval 90.0% to 82.5% (p = 0.38) ([`eval/REPORT.md`](qwen-flash-abliterated-rtx6000x1/eval/REPORT.md)) |
+| S8 prompt states | `agent`'s args at `--context 139264 --parallel 3` (the GB10 sizes the RAM cache to 15.9 GiB). Turn-2 TTFT cold / RAM / NVMe after eviction / NVMe after restart: 32K 15.9 / 0.66 / 1.92 / 1.62 s, 64K 32.1 / 1.38 / 3.52 / 2.70 s, 128K 157.1 / 0.46 / 5.76 / 5.08 s; reply tokens equal in all four at each size (`7989cc9ec180`, `9ccea81c1c81`, `0b75826f55a0`). States on disk: 1.04, 1.96 and 3.82 GiB. A 32K prompt sent in one piece is written too; a 64K one is not (KNOWN-ISSUES). Soak STABLE: 10 minutes, 126 requests, 3 probes with constant hashes, 0 failed; the store grew from 0 to 4.5 GiB (the kit refused only to write the receipt, whose args held the run's absolute folder) |
 
 ## 2. One RTX PRO 6000
 
