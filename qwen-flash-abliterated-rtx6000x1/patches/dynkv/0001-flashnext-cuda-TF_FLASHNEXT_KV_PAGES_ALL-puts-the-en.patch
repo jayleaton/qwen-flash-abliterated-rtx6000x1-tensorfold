@@ -1,0 +1,187 @@
+From 0bf2173fe391aa5a6582eddf273eb16e51153c9e Mon Sep 17 00:00:00 2001
+From: Jay Leaton <58495321+jayleaton@users.noreply.github.com>
+Date: Fri, 27 Nov 2026 19:09:40 +0700
+Subject: [PATCH 1/2] flashnext cuda: TF_FLASHNEXT_KV_PAGES_ALL puts the
+ engine's own stream on pages too
+
+With TF_FLASHNEXT_KV_PAGES=n and _ALL=1 every stream already ran on a pool
+lane, but the plan still set the engine's own contiguous window aside in
+the room (free_streams 0) and attach made --parallel - 1 lanes: at a
+262,144-token window one idle window held about 8 GiB and one stream was
+lost. Now _ALL makes the engine paged, as Qwen's TF_QWEN_KV_PAGES_ALL and
+GLM's pool do: Loaded.engine_paged, so the core plan sets one window of
+pages aside (ownPages) inside the shared pool, free_streams 1, so the
+room is not charged for a contiguous one too, and a lane for every
+stream. The family names its pool (kvPool), so /metrics reports
+kv_capacity_mode paged and the pool's tokens. Pages unset, or pages
+without _ALL: unchanged.
+---
+ docs/api.md                                   |  2 +-
+ zig/src/core/profile.zig                      |  2 +-
+ zig/src/families/flashnext/cuda_kv_lanes.zig  | 38 ++++++++++++++++++-
+ zig/src/families/flashnext/cuda_lanes.zig     |  8 +++-
+ .../families/flashnext/cuda_lanes_load.zig    |  4 ++
+ 5 files changed, 48 insertions(+), 6 deletions(-)
+
+diff --git a/docs/api.md b/docs/api.md
+index 5594edf6f..96477be85 100644
+--- a/docs/api.md
++++ b/docs/api.md
+@@ -1442,7 +1442,7 @@ An engine on the shared lane host adds these groups, each complete or absent:
+ | --- | --- |
+ | Requests | `requests_waiting_by_reason{reason}` (queued requests by the one wait reason each holds, every reason always present; they sum to `requests_waiting`), `restore_fallbacks_total` (requests whose saved prefix could not be restored, so they prefilled from zero and were served; once a request), `waiting_prompt_tokens` (prompt tokens of queued requests, before any kept prefix restores part of them), `filling_prompt_tokens_left` (absent while a backend without fill progress fills), `requests_started_total`, `requests_requeued_total`, `background_yields_total` |
+ | Work | `scheduler_tokens_total{mode}` with `prefill_compute`, `prefill_cache` and `decode` (output tokens after each request's first), counted as the work happens, and `prefill_busy_seconds_total`: engine seconds in prompt calls whose work `prefill_compute` counted. The `prefill_compute` delta over its delta is the prefill rate. A family round planner publishes no work group |
+-| Capacity | `kv_capacity_mode{mode}` (`window` or `paged`), `lanes_free`, and for a paged engine `kv_pool_capacity_tokens`, `kv_pool_available_tokens`, `kv_pool_reclaimable_tokens`, `kv_pool_promised_tokens` with `pool="main"`, and `kv_pool_run_available` where the family needs a contiguous run. Published by the CUDA lane host: `window` for an engine without a page plan, `paged` with GLM-5.3-Flash's pool on rank 0; other paged families leave the group out until they name their pool |
++| Capacity | `kv_capacity_mode{mode}` (`window` or `paged`), `lanes_free`, and for a paged engine `kv_pool_capacity_tokens`, `kv_pool_available_tokens`, `kv_pool_reclaimable_tokens`, `kv_pool_promised_tokens` with `pool="main"`, and `kv_pool_run_available` where the family needs a contiguous run. Published by the CUDA lane host: `window` for an engine without a page plan, `paged` with GLM-5.3-Flash's pool on rank 0 and Flash Next's under `TF_FLASHNEXT_KV_PAGES`; other paged families leave the group out until they name their pool |
+ 
+ In the requests group, `requests_running`, `requests_waiting` and their vLLM mirrors take the ledger's values.
+ While the engine is parked, none of these engine values is shown: neither the groups nor `requests_running`,
+diff --git a/zig/src/core/profile.zig b/zig/src/core/profile.zig
+index 6e6f83548..0e9afd57e 100644
+--- a/zig/src/core/profile.zig
++++ b/zig/src/core/profile.zig
+@@ -162,7 +162,7 @@ pub const entries = [_]Entry{
+     .{ .id = .TF_QWEN_KV_HOST, .families = qwen, .class = .identical, .syntax = .one, .effect = "Keep KV pages in mapped host memory; one stream, state runs on the device", .evidence = "#2637" },
+     .{ .id = .TF_KV_SHARE, .families = &.{ "gemma4", "gemma4_unified", "kolibri1", "spark2_5", "glm5_next", "glm_moe_dsa", "dory" }, .class = .identical, .effect = "Keep prompt states over the core KV pool", .evidence = "#1657" },
+     .{ .id = .TF_FLASHNEXT_KV_PAGES, .families = flash, .class = .experimental, .effect = "KV pool page size; no profile qualifies it yet", .evidence = "#1660" },
+-    .{ .id = .TF_FLASHNEXT_KV_PAGES_ALL, .families = flash, .class = .debug, .syntax = .one, .effect = "Put every stream on pool pages for checks", .evidence = "#1660" },
++    .{ .id = .TF_FLASHNEXT_KV_PAGES_ALL, .families = flash, .class = .debug, .syntax = .one, .effect = "Put the engine's own stream on pages too", .evidence = "#1660" },
+     .{ .id = .TF_KV_PAGES, .families = glm, .class = .identical, .syntax = .auto, .effect = "GLM KV pool pages; auto from two ranks with BF16, windows with FP8", .evidence = "#1322" },
+     .{ .id = .TF_KV_PAGES, .families = &.{ "nemotron_h", "nemotron_h_omni" }, .class = .identical, .report_values = &.{ "0", "all" }, .effect = "Nemotron KV pool pages by default; exact 0 disables, exact all pages every stream", .evidence = "#781" },
+     .{ .id = .TF_GLM_KV_HOST, .families = glm, .class = .identical, .syntax = .one, .effect = "Keep the DSA layers' latent rows on pinned host pages", .evidence = "#1795" },
+diff --git a/zig/src/families/flashnext/cuda_kv_lanes.zig b/zig/src/families/flashnext/cuda_kv_lanes.zig
+index ca408da95..799f7e72f 100644
+--- a/zig/src/families/flashnext/cuda_kv_lanes.zig
++++ b/zig/src/families/flashnext/cuda_kv_lanes.zig
+@@ -1,4 +1,4 @@
+-//! Flash Next's streams beside the first take attention-cache pages from the core pool (TF_FLASHNEXT_KV_PAGES=n).
++//! Flash Next's streams take attention-cache pages from the core pool (TF_FLASHNEXT_KV_PAGES=n, _ALL=1: every one).
+ const std = @import("std");
+ const cuda = @import("cuda");
+ const kv = @import("core").kv_pool;
+@@ -24,12 +24,22 @@ pub fn pagingOf(v: ?[]const u8) !usize {
+     return n;
+ }
+ 
+-/// TF_FLASHNEXT_KV_PAGES_ALL=1: every stream on pages, none on its own contiguous caches (checks).
++/// TF_FLASHNEXT_KV_PAGES_ALL=1: every stream on pages, none on its own contiguous caches.
+ pub fn pagedOnly() bool {
+     const v = @import("core").profile.get(.TF_FLASHNEXT_KV_PAGES_ALL) orelse return false;
+     return std.mem.eql(u8, v, "1");
+ }
+ 
++/// With pages and TF_FLASHNEXT_KV_PAGES_ALL=1 the engine's own stream takes pages too: the plan sets a window aside.
++pub fn enginePaged(page_tokens: usize) bool {
++    return page_tokens > 0 and pagedOnly();
++}
++
++/// The pool's lanes for `streams` beside the engine's own, and one for it when it takes pages too.
++pub fn poolLanes(streams: u32, engine_paged: bool) u32 {
++    return streams + @intFromBool(engine_paged);
++}
++
+ /// Pages a stream maps at most: a full window and one more drafted window.
+ fn mostPages(capacity: usize, tokens: usize) usize {
+     return (capacity + windowRows() + tokens - 1) / tokens;
+@@ -66,6 +76,7 @@ pub const State = struct {
+     pool: ?*Pool = null,
+     layout: ?kv.Layout = null,
+     head: ?Head = null,
++    /// TF_FLASHNEXT_KV_PAGES_ALL=1: every stream, the engine's own too, on a pool lane.
+     paged_only: bool = false,
+     own_busy: bool = false,
+ 
+@@ -74,6 +85,12 @@ pub const State = struct {
+         return if (!s.paged_only and !s.own_busy) .own else .pool;
+     }
+ 
++    /// The pool /metrics reports, with the run of pages each open claims first; null without pages.
++    pub fn source(s: *const State) ?kv.Source {
++        const p = s.pool orelse return null;
++        return .{ .pool = &p.pool, .page_tokens = @intCast(p.layout.page_tokens), .run_pages = @intCast(p.layout.runPages()) };
++    }
++
+     pub fn opened(s: *State, from: From) void {
+         if (from == .own) s.own_busy = true;
+     }
+@@ -420,6 +437,23 @@ test "a stream's pages: its rows and a drafted window, no more than a full windo
+     try std.testing.expect(l.pages(40960 + windowRows()) <= mostPages(40960, 256));
+ }
+ 
++test "every stream on pages at 262,144 x 8: the engine's window is pool pages any stream takes, not a share held idle" {
++    const window = 262144 + windowRows();
++    const l = layout(262144, 256, .{ .draft_n = 32768, .rows = 3072 }, 0);
++    const room: u64 = 14 << 30;
++    const b: kv.Budget = .{ .room = room, .engine = 0, .lanes = 8, .window = window, .engine_paged = true, .asked = true };
++    const all = try kv.plan(l, b);
++    try std.testing.expectEqual(@as(u32, 8), all.lanes);
++    try std.testing.expectEqual(@as(u32, 8), poolLanes(all.lanes - 1, true)); // a lane each, the engine's own too
++    try std.testing.expect(all.pages >= l.pages(window) + 7 * (1 + l.runPages())); // one full window beside 7 starts
++    // the engine's window held contiguous beside the pool: the other 7 share what it leaves, under one window
++    var held = b;
++    held.room = room - l.pages(window) * l.pageBytes();
++    held.engine_paged = false;
++    const before = try kv.plan(l, held);
++    try std.testing.expect(before.pages < l.pages(window) and all.pages > before.pages + l.pages(window) / 2);
++}
++
+ test {
+     _ = @import("cuda_kv_init_test.zig");
+     _ = @import("cuda_kv_lifetime_test.zig");
+diff --git a/zig/src/families/flashnext/cuda_lanes.zig b/zig/src/families/flashnext/cuda_lanes.zig
+index 069bf291c..19c163139 100644
+--- a/zig/src/families/flashnext/cuda_lanes.zig
++++ b/zig/src/families/flashnext/cuda_lanes.zig
+@@ -47,8 +47,7 @@ pub fn Namespace(comptime Tri: type) type {
+         pub const windowRows = kvl.windowRows;
+         pub fn attach(p: *anyopaque, streams: u32, count: usize) !void {
+             const own = of(p);
+-            own.kv.pool = try kvl.Pool.initOn(own.gpa, own.engine, own.kv.layout.?, own.context, own.kv.head, streams, count, own.device, own.io);
+-            own.kv.paged_only = kvl.pagedOnly() and streams > 0;
++            own.kv.pool = try kvl.Pool.initOn(own.gpa, own.engine, own.kv.layout.?, own.context, own.kv.head, kvl.poolLanes(streams, own.kv.paged_only), count, own.device, own.io);
+         }
+         pub fn fits(p: *anyopaque, rows: u32, max_tokens: u32) bool {
+             return of(p).kv.fits(rows, max_tokens);
+@@ -56,6 +55,9 @@ pub fn Namespace(comptime Tri: type) type {
+         pub fn ledgerPool(p: *anyopaque) ?*@import("core").kv_pool.Pool { // what the host's ledger counts (#1943)
+             return if (of(p).kv.pool) |x| &x.pool else null;
+         }
++        pub fn kvPool(p: *anyopaque) ?@import("core").kv_pool.Source { // what /metrics reports (kv_capacity_mode)
++            return of(p).kv.source();
++        }
+         /// The pass ignores its cuts, so states keep at any token; the MTP head reads one token on (lookahead 1).
+         pub const cache_rules = struct {
+             pub const lookahead: u32 = 1;
+@@ -98,6 +100,8 @@ pub fn Namespace(comptime Tri: type) type {
+             follow: ?*const fn (*anyopaque) anyerror!void = null,
+             /// TF_FLASHNEXT_KV_PAGES: the streams beside the first take pages of one pool (null: their own caches).
+             layout: ?@import("core").kv_pool.Layout = null,
++            /// TF_FLASHNEXT_KV_PAGES_ALL=1: the engine's own stream takes pages too, a window of them set aside.
++            engine_paged: bool = false,
+             /// Kept states in pinned host memory (a discrete card's): --prompt-cache-gib budgets host bytes then.
+             host_snaps: bool = false,
+         };
+diff --git a/zig/src/families/flashnext/cuda_lanes_load.zig b/zig/src/families/flashnext/cuda_lanes_load.zig
+index e220f426b..7c3d34a92 100644
+--- a/zig/src/families/flashnext/cuda_lanes_load.zig
++++ b/zig/src/families/flashnext/cuda_lanes_load.zig
+@@ -136,12 +136,16 @@ pub fn open(comptime F: type, gpa: std.mem.Allocator, io: std.Io, ctx: *const cu
+         own.kv.head = if (own.head) |h| .{ .draft_n = h.ids.len, .rows = own.engine.chunk } else null;
+         const head_bytes = if (own.head) |h| mtp.Draft.bytes(window, h.ids.len, own.engine.chunk, own.engine.heads) else 0;
+         own.kv.layout = @import("cuda_kv_lanes.zig").layout(o.context, page_tokens, own.kv.head, stream_bytes - own_seq_bytes - head_bytes);
++        own.kv.paged_only = @import("cuda_kv_lanes.zig").enginePaged(page_tokens);
+     }
+     if (own.ranks) |r| try load_cache.finishAfter(.{ r, std.math.maxInt(u64) }, ranks.Session.room) else load_cache.finish();
+     // the weights are in: the n-gram table into the page cache behind them, so the first prompt finds its rows in RAM
+     own.engine.ngram.warm();
+     return .{
+         .layout = own.kv.layout,
++        // on pages the plan pays for the engine's window as pages: its stream is in no contiguous share of the room
++        .engine_paged = own.kv.paged_only,
++        .free_streams = @intFromBool(own.kv.paged_only),
+         .vision = own.vision,
+         .backend = own.backend(),
+         .facts = own.facts(),
+-- 
+2.56.0
+

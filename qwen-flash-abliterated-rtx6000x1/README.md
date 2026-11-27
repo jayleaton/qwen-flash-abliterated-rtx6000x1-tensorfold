@@ -31,7 +31,7 @@ repository [README](../README.md) and [RUNBOOK](../RUNBOOK.md), and what is stil
 | --- | --- | --- |
 | `default` | one GPU, `--context 16384 --parallel 16`, `KEPT=device` | the shipped profile: every lane off, gated and soaked, and the reproduction reference; `KEPT=device` pins main's memory layout for that check |
 | `optimised` | `--parallel 12`: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | every one-GPU lever: cold 8K +4.6%, x12 +8% code and +12% chat over `default`, one stream flat; not soaked yet |
-| `agent` | `optimised` less `CHUNK_SOLO` at `--context 139264 --parallel 3`, prompt cache 32 GiB in host RAM and on disk ([below](#prompt-states-on-nvme)) | the coding-agent window, where agents stop compacting and mis-quoting `edit` text; gated; soaked on a GB10 only |
+| `agent` | `optimised` less `CHUNK_SOLO` at `--context 262144 --parallel 8`, every stream on one shared K/V page pool, prompt cache 32 GiB in host RAM and on disk ([below](#prompt-states-on-nvme)) | the coding-agent window, where agents stop compacting and mis-quoting `edit` text: short chats cost little, one session can grow to 262,144 tokens; gated and soaked on a GB10, not yet booted on a 6000 |
 
 ## Levers and switches
 
@@ -50,6 +50,7 @@ lever alone.
 | `TF_FLASHNEXT_ROLL_BATCH` | `optimised` | part of a measured +4.3% decode stack, alone within noise | no |
 | `TF_FLASHNEXT_ROUTE_FUSED` | `optimised` | the NVFP4 plan path never ran on a GPU | no |
 | `TF_FLASHNEXT_READOUT_DECODE` | `optimised` | small decode gain elsewhere | no |
+| `TF_FLASHNEXT_KV_PAGES=256`, `_KV_PAGES_ALL=1` | `agent` | **measured** on one GB10: the same tokens as fixed windows, ABBA within 0.3% at the 3% bar ([CAPACITY](docs/CAPACITY.md#one-shared-kv-pool-agent)) | not on a 6000 |
 | `TF_FLASHNEXT_KEPT=host` | `optimised`, `agent` | frees VRAM for KV, restores cross PCIe; tokens should not depend on it | no |
 | `TF_FLASHNEXT_KEPT=device` | `default` | main's memory layout, for the reproduction check | n/a (a placement, not a lever) |
 | `TF_FLASHNEXT_DRAFTS_GREEDY=12` | the `drafts-greedy` arm | +5% greedy decode elsewhere; NVFP4 accepts fewer drafts, so it is measured alone | no |
