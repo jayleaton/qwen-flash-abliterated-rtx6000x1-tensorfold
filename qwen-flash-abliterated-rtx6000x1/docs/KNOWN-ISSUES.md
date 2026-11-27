@@ -13,11 +13,13 @@ the draft head, so the rounding can change acceptance, never tokens. On one GB10
 conformance gate's `drafted` check (drafted equals plain) passes, and the head drafts 4.27 tokens a round on
 greedy code (nvidia's pack: 4.41 on a 6000), so the layout is right.
 
-## Soak-tested on `default` only
+## Soak-tested on `default` and `agent`, not `optimised`
 
 On one RTX PRO 6000 a 30-minute `recipe soak default` of the shipped weights is STABLE (2,325 requests, 262
 cancels, 0 failed, probe hashes constant, free memory at least 14.78 GiB); the card peaked at 92 C at a 550 W cap.
-`optimised` has not run a soak; `agent` has soaked on a GB10 only (RUNBOOK S8 and D6).
+On a second 6000 a 30-minute `recipe soak agent` (262,144 x 8, the NVMe tier on) is STABLE: 1,298 requests, 169
+cancels, 0 failed, 7 probes constant, free memory at least 11.04 GiB, 67 C at 600 W (RUNBOOK G9). `optimised` has not
+run a soak.
 
 ## `optimised` serves 12 streams, `agent` drops `TF_FLASHNEXT_CHUNK_SOLO`
 
@@ -28,27 +30,41 @@ lever kept and no headroom: 12 streams of 0.95 GiB in the 11.4 GiB left. `agent`
 139,264 x 3 needed 13.41 GiB of 11.34 GiB, so it drops `CHUNK_SOLO` and boots with 14.0 GiB left. `optimised`'s
 x16 bench cells are queued behind its 12 streams and do not compare with `default`'s.
 
-## The NVMe tier's restore rate on a 6000 is not measured
+## The NVMe tier on a 6000 restores at about 1.85 GiB/s
 
-S8 and S9 ran on a GB10, where a state read from NVMe lands in the same memory the GPU reads. On a 6000 it lands in pinned
-host memory (`KEPT=host`) and crosses PCIe at admission; an earlier recipe saw 0.7-1 GiB/s restores under WSL2. To
-confirm on one 6000, with a bundle rebuilt for `patches/disk` (the published one predates it): S8's and S9's turn-2 TTFT (cold, RAM, NVMe after eviction and after restart), the restore
-GiB/s, and a 30-minute `recipe soak agent` with the tier on.
+On a 6000 a state read from NVMe lands in pinned host memory (`KEPT=host`) and crosses PCIe at admission. Measured on
+one 6000 (RUNBOOK G6-G8): the disk reads run at 2.5-3.1 GiB/s, the whole restore (read and copy) at 1.85 GiB/s, so a
+128K session (3.82 GiB) is back in 2.06 s and its turn 2 starts in 3.1 s against 17.2 s cold. The first read of a
+state the page cache has never held was slower once (1.04 GiB in 3.0 s). Another host's disk moves these numbers.
 
-## `agent`'s shared pool is measured on a GB10, not yet on a 6000
+## `agent`'s shared pool reserves each request's reply limit
 
-`agent` puts every stream on one K/V page pool (`TF_FLASHNEXT_KV_PAGES=256`, `_ALL=1`, `patches/dynkv`). On one GB10
-it gives the same tokens as fixed windows, an ABBA within 0.3%, and it queues requests the pool cannot hold yet
-([CAPACITY](CAPACITY.md#one-shared-kv-pool-agent)). The 6000's page count (about 1,900, estimated from the GB10's
-page size), its own ABBA, and a soak need a 6000 run with a bundle of tree `0272db7d`. A request reserves its
-reply limit up front, so a client that sends a large `max_tokens` holds that many tokens of pages until it ends;
-`--max-tokens` (4,096) is the reservation when a client sends none.
+`agent` puts every stream on one K/V page pool (`TF_FLASHNEXT_KV_PAGES=256`, `_ALL=1`, `patches/dynkv`). On one 6000
+it boots with 1,900 pages of 256 rows (486,400 tokens, enough for one stream at the whole window), gives the same tokens
+as fixed windows within 1% (RUNBOOK G2-G5), and queues requests the pool cannot hold yet
+([CAPACITY](CAPACITY.md#one-shared-kv-pool-agent)). A request reserves its reply limit up front, so a client that sends
+a large `max_tokens` holds that many tokens of pages until it ends; `--max-tokens` (4,096) is the reservation when a
+client sends none.
 
 ## Cold 32K needs a window over 32K
 
 The 16,384-token `default` and `optimised` profiles refuse the 32,768-token cold prompt, so `gates/hashes.json`
 carries the cold 8K row only (bench and soak probe every cold row); `prompts/ids-32768.json` stays for a profile
 with a wider window to record its row.
+
+## The first cold prompt of a size on a fresh host can run 5x slow
+
+On the second 6000 host the first cold 8K and the first cold 32K prompt the host ever served ran at 1,384 and 1,393
+tok/s against about 7,500-8,000 in every later cell, fresh server or not; the kit's control arm then voided that bench.
+Its page cache could not be dropped (read-only), so this looks like a first read of something from the host's disk.
+Run one throwaway cold prompt of each size before a bench on a new host.
+
+## `w4a4` is slower on a 6000's prompts
+
+On one 6000 (RUNBOOK W1-W7) `w4a4` gives the GB10's tokens (12/12 decode hashes, cold 8K and 32K) and its eval, and
+its `ck` kernels pass the kernel contract on sm_120; but cold 8K is 12.7% slower than `optimised` (38.4% on
+`default`'s small passes), and nsys puts the routed experts at 326 ms against 195. It wins one-stream decode (+5.6%
+code, +9.4% chat) and loses at 12 streams. Opt-in and unshipped as before.
 
 ## Speed needs an honest power reading
 
@@ -68,8 +84,9 @@ At 32 streams decode falls off the drafting rounds' 64-row cap shared across str
 On sm_120 the `qmmf-prompt-mx-contract` kernel contract exits rc 139; the other contracts pass. It belongs to
 a lane no profile turns on. Not investigated; the RUNBOOK's verify step re-runs the contracts on the new pin.
 
-## Measured on one host
+## Measured on two hosts
 
-Every speed number here comes from one rented RTX PRO 6000 at a 550 W cap; the earlier one-GPU reference ran at
-600 W on another host. Same-host ABBA only: a number from one host does not predict another's. The old pin's
-numbers stay labeled as such in [PERFORMANCE](PERFORMANCE.md).
+The first speed numbers come from one rented RTX PRO 6000 Workstation Edition at a 550 W cap; RUNBOOK G1-W7 from a
+Server Edition at 600 W on another host (decode x1 about 242 tok/s there against 267 on the first). Same-host ABBA
+only: a number from one host does not predict another's. The old pin's numbers stay labeled as such in
+[PERFORMANCE](PERFORMANCE.md).

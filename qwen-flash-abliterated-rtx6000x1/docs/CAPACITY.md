@@ -25,7 +25,13 @@ of one pool the boot budget sizes. The plan sets one full window of pages aside,
 `--max-tokens`) and one drafted window at admission. A request the pool cannot hold yet waits in the queue; a
 running stream never asks for memory, so nothing runs out mid-reply.
 
-Measured on one GB10 (sm_121), tree `dcc6f37a`. The 6000 has not booted it yet:
+On one RTX PRO 6000 (tree `0272db7d`, RUNBOOK G2-G9), `agent` boots with `the engine's own and 7 more taking 1900
+pages of 256 rows (13.95 GiB) ... (enough for 1 at a 262144-token window)`: a pool of 486,400 tokens. Fixed windows
+against every stream on pages at 36,864 x 8: within 1% on every cell, the same tokens. Short chats beside one session
+grown to 247,320 tokens: 55 of 56 returned 200, the 56th that session's next turn past the window, refused; the pool
+kept at least 144,128 tokens free. A 30-minute `recipe soak agent`: STABLE, 1,298 requests, 0 failed.
+
+Measured first on one GB10 (sm_121), tree `dcc6f37a`:
 
 | profile on the GB10 | boot line | tokens |
 | --- | --- | --- |
@@ -49,4 +55,4 @@ Measured on one GB10 (sm_121), tree `dcc6f37a`. The 6000 has not booted it yet:
 
 On a 6000 a page of 256 rows is about 7.5 MiB (30 KB a token). The `agent` profile's 14.0 GiB budget is therefore
 about 1,900 pages, roughly 488K tokens: one 262,144-token session beside about 225K tokens of other streams, or
-eight shorter sessions. This is an estimate from the GB10's page size until a 6000 boots the profile.
+eight shorter sessions. A 6000 boots it with 1,900 pages, 486,400 tokens.
