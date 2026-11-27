@@ -9,3 +9,5 @@ dist/
 .check-public.local
 # the kit's per-recipe records: machine-local, never proof
 .recipe/
+# the agent profile's default prompt-state folder, when a server starts from this checkout
+prompt-cache/

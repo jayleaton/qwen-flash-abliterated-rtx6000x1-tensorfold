@@ -31,7 +31,7 @@ repository [README](../README.md) and [RUNBOOK](../RUNBOOK.md), and what is stil
 | --- | --- | --- |
 | `default` | one GPU, `--context 16384 --parallel 16`, `KEPT=device` | the shipped profile: every lane off, gated and soaked, and the reproduction reference; `KEPT=device` pins main's memory layout for that check |
 | `optimised` | `--parallel 12`: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | every one-GPU lever: cold 8K +4.6%, x12 +8% code and +12% chat over `default`, one stream flat; not soaked yet |
-| `agent` | `optimised` less `CHUNK_SOLO` at `--context 139264 --parallel 3`, prompt cache 32 GiB in host RAM | the coding-agent window, where agents stop compacting and mis-quoting `edit` text; gated, not soaked yet |
+| `agent` | `optimised` less `CHUNK_SOLO` at `--context 139264 --parallel 3`, prompt cache 32 GiB in host RAM and on disk ([below](#prompt-states-on-nvme)) | the coding-agent window, where agents stop compacting and mis-quoting `edit` text; gated; soaked on a GB10 only |
 
 ## Levers and switches
 
@@ -63,6 +63,34 @@ states in pinned host memory by default (`KEPT=host`).
 5.6-5.9x slower), fp8 KV on NVFP4 (KL 0.0328 fails the 0.02 gate), deeper drafts (14/16 -3%), and
 `DRAFT_HEAD=affine4` (already this pin's default). **A follow-up, not wired:** the FP8 recipe's 0084
 (`TF_FLASHNEXT_PLE_EARLY`, `TF_FLASHNEXT_ROUND_TURN`), which this series does not carry.
+
+## Prompt states on NVMe
+
+`agent` sets upstream's disk tier: every prompt state the RAM cache keeps is also written to a folder and read back
+after an eviction from RAM or a server restart, so a long agent session is not prefilled again from its first token.
+These are serve flags in `[profile.agent]`, product settings under the [switch policy](../docs/switch-policy.md):
+
+| flag | value | what it does |
+| --- | --- | --- |
+| `prompt-cache-disk` | `prompt-cache` | the folder, relative to where the server starts; **point it at an NVMe**: `recipe serve ... agent ENGINE MODEL -- --prompt-cache-disk /nvme/tf-prompts` (the last value wins) |
+| `spill-gib` | 128 | a state the RAM cache evicts finishes its disk write first |
+| `learn-gib` | 128 | the most the store takes on disk (a 128K-token state is 3.8 GiB) |
+| `learn-min-free-gib` | 32 | past this free space, states stay in RAM only |
+| `learn-daily-gib` | 512 | the most it writes in a day |
+
+Receipt (RUNBOOK S8), one GB10 on its NVMe, turn-2 TTFT of a session grown in 16K-token turns, the same reply tokens
+in every column:
+
+| session | cold | RAM hit | NVMe after eviction | NVMe after restart | state on disk |
+| --- | --- | --- | --- | --- | --- |
+| 32K | 15.9 s | 0.66 s | 1.92 s | 1.62 s | 1.04 GiB |
+| 64K | 32.1 s | 1.38 s | 3.52 s | 2.70 s | 1.96 GiB |
+| 128K | 157.1 s | 0.46 s | 5.76 s | 5.08 s | 3.82 GiB |
+
+Hardware: measured on a GB10 (unified memory); expected on `rtx6000x1`, where a state also crosses PCIe into the
+pinned host cache (`KEPT=host`); the 6000's own restore rate is open ([KNOWN-ISSUES](docs/KNOWN-ISSUES.md)).
+`default` and `optimised` leave the tier off: a 16K prompt prefills in about 2 s on a 6000, about what reading
+its state back takes. Salted requests (`cache_salt`) stay in RAM.
 
 ## Gates
 

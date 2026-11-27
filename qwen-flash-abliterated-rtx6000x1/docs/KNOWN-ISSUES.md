@@ -17,7 +17,7 @@ greedy code (nvidia's pack: 4.41 on a 6000), so the layout is right.
 
 On one RTX PRO 6000 a 30-minute `recipe soak default` of the shipped weights is STABLE (2,325 requests, 262
 cancels, 0 failed, probe hashes constant, free memory at least 14.78 GiB); the card peaked at 92 C at a 550 W cap.
-`optimised` and `agent` have not run a soak.
+`optimised` has not run a soak; `agent` has soaked on a GB10 only (RUNBOOK S8).
 
 ## `optimised` serves 12 streams, `agent` drops `TF_FLASHNEXT_CHUNK_SOLO`
 
@@ -27,6 +27,22 @@ about 2.6 GiB (`model 79.55 GiB` against `default`'s 76.91), so `optimised` now 
 lever kept and no headroom: 12 streams of 0.95 GiB in the 11.4 GiB left. `agent` inherits the levers but at
 139,264 x 3 needed 13.41 GiB of 11.34 GiB, so it drops `CHUNK_SOLO` and boots with 14.0 GiB left. `optimised`'s
 x16 bench cells are queued behind its 12 streams and do not compare with `default`'s.
+
+## A prompt jump over about 33K new tokens is not written to disk
+
+Flash Next on CUDA stages each disk write under upstream's default 1 GiB permit (its kept-state view declares no
+served window), and a state takes about 31 KiB a token. A save whose new rows pass about 33K tokens is skipped with
+`saving N tokens skipped (StagingFull)`, and so is its copy at an eviction; that turn's state stays in RAM only and
+no reply changes. Sessions that grow in turns under that size are written turn by turn (the RUNBOOK's S8 grows them
+in 16K turns); a single 64K or 128K paste is not. The fix is upstream's: the Flash Next view's served window, as
+Gemma 4's has.
+
+## The NVMe tier's restore rate on a 6000 is not measured
+
+S8 ran on a GB10, where a state read from NVMe lands in the same memory the GPU reads. On a 6000 it lands in pinned
+host memory (`KEPT=host`) and crosses PCIe at admission; an earlier recipe saw 0.7-1 GiB/s restores under WSL2. To
+confirm on one 6000: S8's 32K/64K/128K turn-2 TTFT (cold, RAM, NVMe after eviction and after restart), the restore
+GiB/s, and a 30-minute `recipe soak agent` with the tier on.
 
 ## Cold 32K needs a window over 32K
 
