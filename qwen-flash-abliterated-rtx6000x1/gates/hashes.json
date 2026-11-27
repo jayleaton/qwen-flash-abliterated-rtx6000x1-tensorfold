@@ -27,5 +27,15 @@
  },
  "expected": {
   "*": {}
+ },
+ "cold": {
+  "8192": {
+   "prompt": "../prompts/ids-8192.json",
+   "tokens": 16
+  },
+  "32768": {
+   "prompt": "../prompts/ids-32768.json",
+   "tokens": 16
+  }
  }
 }
