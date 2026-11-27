@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tensorfold_testkit import bench, receipt
+from tensorfold_testkit import bench, cli, receipt
+from tensorfold_testkit.gates import GateResult
 
 
 def samples(a: float, b: float, control_end: float = 100.0, b_hash: str = "aa" * 6) -> list[bench.Sample]:
@@ -57,6 +58,16 @@ class Receipt(unittest.TestCase):
             ):
                 with self.assertRaises(receipt.ReceiptError):
                     receipt.write(Path(d) / "r.json", "gate", head, {"results": [leak]})
+
+    def test_a_gate_line_quoting_a_path_is_redacted_not_refused(self):
+        head = {"kit": "dev:x", "dev": True, "recipe": "r"}
+        where = "/".join(["", "srv", "engine", "tools", "conformance.py"])
+        result = GateResult("conformance", False, f"FAIL conformance: {where} exited 2")
+        with tempfile.TemporaryDirectory() as d:
+            path = receipt.write(Path(d) / "r.json", "gate", head, {"results": cli.receipt_rows([result])})
+            row = receipt.verify(path)["results"][0]
+        self.assertEqual(row["line"], "FAIL conformance: <redacted> exited 2")
+        self.assertEqual((row["gate"], row["passed"]), ("conformance", False))
 
 
 if __name__ == "__main__":

@@ -238,9 +238,18 @@ def run_gate(args) -> int:
     if args.output:
         args.output.write_text(json.dumps([r.__dict__ for r in results], indent=1) + "\n")
     if args.receipt:
-        rows = [{k: v for k, v in r.__dict__.items() if k != "rows"} for r in results]
-        receipt.write(args.receipt, "gate", json.loads(args.head), {"mock": args.mock, "results": rows})
+        receipt.write(
+            args.receipt, "gate", json.loads(args.head), {"mock": args.mock, "results": receipt_rows(results)}
+        )
     return 1 if failed else 0
+
+
+def receipt_rows(results: list[GateResult]) -> list[dict]:
+    """Each result without its rows, its text redacted: a gate's line may quote a path, a host or a URL."""
+    return [
+        {k: receipt.redact(v) if isinstance(v, str) else v for k, v in r.__dict__.items() if k != "rows"}
+        for r in results
+    ]
 
 
 def selftest(given: Inputs, replies=None):

@@ -20,7 +20,7 @@ KINDS = {
 }
 HEAD = ("schema", "kind", "testkit", "kit", "dev", "recipe", "written")
 PRIVATE = (
-    (re.compile(r"(?<![\w.])(?:/|~/)[A-Za-z0-9._-]+/"), "a filesystem path"),
+    (re.compile(r"(?<![\w.])(?:/|~/)[A-Za-z0-9._-]+/[A-Za-z0-9._/-]*"), "a filesystem path"),
     (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "an IP address"),
     (re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+"), "an e-mail address"),
     (re.compile(r"\bhttps?://"), "a URL"),
