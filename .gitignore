@@ -7,3 +7,5 @@ dist/
 
 # private names for recipe publish-check
 .check-public.local
+# the kit's per-recipe records: machine-local, never proof
+.recipe/
