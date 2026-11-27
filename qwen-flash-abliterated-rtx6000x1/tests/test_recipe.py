@@ -78,6 +78,15 @@ class Profiles_(unittest.TestCase):
             },
         )
 
+    def test_the_w4a4_profile_is_optimised_in_the_packs_own_math_with_its_own_hashes(self):
+        rendered = profiles.render(plan(), "w4a4", {})
+        self.assertEqual(rendered.args, ["--context", "16384", "--parallel", "12", "--precision", "checkpoint"])
+        self.assertEqual(rendered.env, profiles.render(plan(), "optimised", {}).env)
+        self.assertNotIn("w4a4", manifest.load(ROOT).ships)
+        table = hashes.load(ROOT / "gates" / "hashes.json")
+        for name, row in hashes.expected(table, "w4a4").items():
+            self.assertNotEqual(row["greedy"], table["expected"]["*"][name]["greedy"], name)
+
     def test_the_one_experiment_is_measured_by_its_own_arm(self):
         rendered = profiles.render(plan(), "drafts-greedy", {})
         self.assertEqual(rendered.experiments, {"TF_FLASHNEXT_DRAFTS_GREEDY": "12"})

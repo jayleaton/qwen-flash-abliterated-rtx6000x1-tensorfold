@@ -17,19 +17,20 @@ port = 8090
 rev = "af19cdc4f6d3d5adb718dd9c53508722a575e597"
 testkit = ">=0.1,<1"
 
-# Upstream main plus four series, applied in order: patches/loader reads the shipped pack's ModelOpt config
+# Upstream main plus six series, applied in order: patches/loader reads the shipped pack's ModelOpt config
 # and fused BF16 MTP experts; patches/tp1 (to 0011) the one-GPU lanes, each series switch off by default
 # except TF_FLASHNEXT_KEPT; patches/re-pin reconciles the two series' own re-pin patches, which were each
 # written against its series alone and do not stack: it carries their union, every row the hash of this
 # tree's own file. The one-GPU series' 0012 re-pin is superseded by it. patches/disk sizes the disk tier's
 # staging permit to one whole state at the served window, so one long prompt reaches --prompt-cache-disk.
 # patches/dynkv puts the engine's own stream on upstream's K/V page pool too under TF_FLASHNEXT_KV_PAGES_ALL,
-# so every stream shares one pool.
+# so every stream shares one pool. patches/precision adds --precision checkpoint (the w4a4 profile) and its own
+# re-pin; --precision full, the default, runs as before.
 [engine.cuda]
 repo = "https://github.com/ashhart/TensorFold.git"
 rev = "1a3a10d9194c58decd228ce3084f1ccae885a26a"  # upstream main, 2026-11-26
-tree = "0272db7df4948f9e93016b26057b86ed9b550e10"
-series = ["patches/loader", "patches/tp1:0011", "patches/re-pin", "patches/disk", "patches/dynkv"]
+tree = "776a50508dca1af3b20d6e32c3e67ba08532f2b5"
+series = ["patches/loader", "patches/tp1:0011", "patches/re-pin", "patches/disk", "patches/dynkv", "patches/precision"]
 
 # vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
 # GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark. CPU is the -Dcpu target: native
@@ -63,7 +64,8 @@ profile = "rtx6000x1"
 
 # What recipe gate holds the server to: a conformance profile in upstream's tools/conformance_profiles format,
 # and the expected token hashes by prompt and profile ("*" for every profile without its own row), recorded on one
-# 6000 by tools/rental.sh; the cold rows name the bench's prompts.
+# 6000 by tools/rental.sh; the cold rows name the bench's prompts. The w4a4 row is a GB10's, as default's was before
+# a 6000 reproduced it: recipe gate w4a4 on a 6000 confirms or corrects it.
 # gates/control.hashes.json holds the earlier one-GPU reference on the control pack, and
 # gates/spark.hashes.json the shipped pack's GB10 hashes, a reference for that run, never its expected row.
 [gates]
@@ -120,6 +122,13 @@ context = 262144
 parallel = 8
 flags = { prompt-cache-gib = 32, prompt-cache-disk = "prompt-cache", spill-gib = 128, learn-gib = 128, learn-min-free-gib = 32, learn-daily-gib = 512 }
 settings = { TF_FLASHNEXT_CHUNK_SOLO = false, TF_FLASHNEXT_KV_PAGES = "256", TF_FLASHNEXT_KV_PAGES_ALL = "1" }
+
+# Opt-in, never shipped: the routed experts in the pack's own math, NVFP4 rows against NVFP4 weights on the FP4
+# mma (patches/precision), on the optimised stack. It changes tokens, so it has its own rows in gates/hashes.json
+# and its own eval against default (README.md#the-w4a4-profile).
+[profile.w4a4]
+inherits = "optimised"
+flags = { precision = "checkpoint" }
 
 # The one lever outside the ship profile: NVFP4 accepts fewer drafts than FP8, so 12 greedy drafts is
 # measured by its own arm before it joins anything.
