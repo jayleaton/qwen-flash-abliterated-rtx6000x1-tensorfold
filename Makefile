@@ -4,8 +4,9 @@ RUFF ?= uvx ruff@0.17.6
 BASE ?= origin/main
 MAX_LINES := 600
 SHELL_SCRIPTS := bin/recipe $(wildcard scripts/*.sh)
-# The template parts a hosted recipe does not own: the real-names scan covers these and passes the rest.
-TEMPLATE_PARTS := kit testkit templates hardware docs tests scripts bin pyproject.toml
+# The template parts a hosted recipe does not own: the real-names scan covers these and passes the rest; the credits
+# name the real model and its authors.
+TEMPLATE_PARTS := kit testkit templates hardware docs tests scripts bin pyproject.toml ':(exclude)docs/CREDITS.md'
 
 # Every recipe this repository hosts beside the kit: its tests run with the kit's own. The kit's test
 # fixtures are not recipes.

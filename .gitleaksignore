@@ -1,0 +1,25 @@
+# token_sha256 fields in the kit's synthetic test fixtures: hashes of token ids, not credentials
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/PF-2/cold-1024.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/PF-2/cold-2048.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/PF-5/cold-1024.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/PF-5/cold-2048.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/PK-3/cold-1024.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/PK-3/cold-2048.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/PK-4/cold-1024.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/PK-4/cold-2048.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/R-1/cold-1024.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/R-1/cold-2048.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/R-6/cold-1024.json:generic-api-key:7
+2af6c1c144f79354a9129bef7e62b3516e14a21a:tests/fixtures/example-single/abba/R-6/cold-2048.json:generic-api-key:7
+tests/fixtures/example-single/abba/PF-2/cold-1024.json:generic-api-key:7
+tests/fixtures/example-single/abba/PF-2/cold-2048.json:generic-api-key:7
+tests/fixtures/example-single/abba/PF-5/cold-1024.json:generic-api-key:7
+tests/fixtures/example-single/abba/PF-5/cold-2048.json:generic-api-key:7
+tests/fixtures/example-single/abba/PK-3/cold-1024.json:generic-api-key:7
+tests/fixtures/example-single/abba/PK-3/cold-2048.json:generic-api-key:7
+tests/fixtures/example-single/abba/PK-4/cold-1024.json:generic-api-key:7
+tests/fixtures/example-single/abba/PK-4/cold-2048.json:generic-api-key:7
+tests/fixtures/example-single/abba/R-1/cold-1024.json:generic-api-key:7
+tests/fixtures/example-single/abba/R-1/cold-2048.json:generic-api-key:7
+tests/fixtures/example-single/abba/R-6/cold-1024.json:generic-api-key:7
+tests/fixtures/example-single/abba/R-6/cold-2048.json:generic-api-key:7

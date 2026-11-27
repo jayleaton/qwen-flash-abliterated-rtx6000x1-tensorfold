@@ -1,8 +1,6 @@
-# The recipe this repository hosts, instantiated from templates/recipe and migrated from the private
-# qwen-flash-nvfp4-rtx6000-tensorfold recipe: its one-GPU profile (`config/profiles/tp1`) is the `default`
-# profile here, and its NVFP4 control pack (nvidia @ fc694b54) remains the reference weights. The kit this
-# recipe pins is the copy in this repository; the copy was made from the kit at 759c8b4e0abc
-# (759c8b4e0abcecdc4c67d1712310ca7aed6cf4ea), recorded here and in the repository README.
+# The recipe this repository hosts, instantiated from templates/recipe. Its `default` profile is the one-GPU profile
+# of an earlier, unpublished NVFP4 recipe for this card, and that recipe's control pack (nvidia @ fc694b54) remains
+# the reference weights. The kit this recipe pins is the copy in this repository.
 
 [recipe]
 name = "qwen-flash-abliterated-rtx6000x1"
@@ -32,7 +30,7 @@ series = ["patches/loader", "patches/tp1:0011", "patches/re-pin"]
 
 # vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
 # GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark. CPU is the -Dcpu target: native
-# for this host only; a binary for another host names its CPU level (the rental bundle is x86_64_v3).
+# for this host only; a binary for another host names its CPU level (the release bundle is x86_64_v3).
 [engine.cuda.build]
 vars = { NVCC = "/usr/local/cuda/bin/nvcc", GPU = "sm_120", CPU = "native" }
 executables = ["NVCC"]
@@ -51,7 +49,7 @@ steps = [["zig", "build", "grammar", "-Dxgrammar={XGRAMMAR}", "-Dcpu={CPU}"]]
 outputs = ["zig-out/native/lib/libtfgrammar.so"]
 
 # The shipped weights: the abliterated pack. The control pack (nvidia/Qwen3.8-Flash-Next-NVFP4 at fc694b54)
-# is recorded beside them in config/: the migration must reproduce the old recipe's one-GPU hashes on it.
+# is recorded beside them in config/: this pin reproduces the earlier one-GPU reference's hashes on it.
 # The kit holds one weight set; the control set is this recipe's own addition, in config/control.*.
 [weights]
 rev = "be794b990578ef3031eccf9f28e675a289a09ee9"
@@ -61,9 +59,9 @@ sha256 = "config/weights.sha256"
 profile = "rtx6000x1"
 
 # What recipe gate holds the server to: a conformance profile in upstream's tools/conformance_profiles format,
-# and the expected token hashes by prompt and profile ("*" for every profile without its own row). The decode
-# rows wait on the first 6000 run (tools/rental.sh records them); the cold rows name the bench's prompts.
-# gates/control.hashes.json holds the old recipe's one-GPU reference on the control pack, and
+# and the expected token hashes by prompt and profile ("*" for every profile without its own row), recorded on one
+# 6000 by tools/rental.sh; the cold rows name the bench's prompts.
+# gates/control.hashes.json holds the earlier one-GPU reference on the control pack, and
 # gates/spark.hashes.json the shipped pack's GB10 hashes, a reference for that run, never its expected row.
 [gates]
 conformance = "gates/conformance.json"
@@ -83,9 +81,8 @@ minutes = 30
 workers = 4
 probe_min = 5
 
-# The migrated one-GPU profile of the old recipe's config/profiles/tp1: --context 16384 --parallel 16, every
-# lane off, upstream main's behaviour, and the reproduction reference: the control pack must give the old
-# recipe's one-GPU hashes (code 4e759dbd859c, chat 764da77fbd3f, cold 8K fa345c10f631; full values in
+# The earlier recipe's one-GPU profile: --context 16384 --parallel 16, every lane off, upstream main's behaviour,
+# and the reproduction reference: the control pack gives the earlier one-GPU hashes (code 4e759dbd859c, chat 764da77fbd3f, cold 8K fa345c10f631; full values in
 # gates/control.hashes.json). KEPT=device pins main's memory layout for that check: the TP1 series keeps
 # prompt states in pinned host memory by default on a discrete card. Upstream now defaults
 # TF_FLASHNEXT_READOUT_FUSED on for prompt passes; if a hash moves, isolate with =0 before calling it a

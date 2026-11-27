@@ -1,6 +1,7 @@
-# Known issues (ported from the old recipe, plus this migration's own)
+# Known issues
 
-Ported rows are **measured on the old pin**; the migration rows are this recipe's, open now.
+Rows marked *old pin* are ported from an earlier one-GPU recipe and were measured on its pin; the rest are this
+recipe's own.
 
 ## The shipped weights load through the `patches/loader` series
 
@@ -40,20 +41,19 @@ SM clock at about 600 MHz of 3,090 and every speed number was void (code x1 39.6
 291). `tools/rental.sh check` logs the power limit; before a bench, `nvidia-smi --query-gpu=clocks.sm,power.draw
 --format=csv` under load should show the clock near its maximum and a draw at or under the limit.
 
-## The codex32 cliff
+## The codex32 cliff (old pin)
 
 At 32 streams decode falls off the drafting rounds' 64-row cap shared across streams (each stream drafted
 129-145 tokens a request against 205-215 at 16). One card does not fit 32 streams at the served windows
 ([CAPACITY](CAPACITY.md)); keep `--parallel` at 16 or below.
 
-## `qmmf-prompt-mx-contract` segfaults
+## `qmmf-prompt-mx-contract` segfaults (old pin)
 
 On sm_120 the `qmmf-prompt-mx-contract` kernel contract exits rc 139; the other contracts pass. It belongs to
 a lane no profile turns on. Not investigated; the RUNBOOK's verify step re-runs the contracts on the new pin.
 
-## Nothing is measured on this pin
+## Measured on one host
 
-The engine pin moved from the old recipe's `924d50a9d` + 15 patches to upstream main `1a3a10d9` with no
-series, and the shipped weights differ from the control pack. Every expected lever is an experiment arm;
-every hash table is empty until the GPU run fills it. The old pin's numbers stay labeled as such in
-[PERFORMANCE](PERFORMANCE.md).
+Every speed number here comes from one rented RTX PRO 6000 at a 550 W cap; the earlier one-GPU reference ran at
+600 W on another host. Same-host ABBA only: a number from one host does not predict another's. The old pin's
+numbers stay labeled as such in [PERFORMANCE](PERFORMANCE.md).

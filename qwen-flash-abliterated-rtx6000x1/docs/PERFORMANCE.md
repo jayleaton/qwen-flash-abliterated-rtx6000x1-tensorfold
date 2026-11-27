@@ -1,10 +1,10 @@
 # Performance (ported, measured on the old pin)
 
-Every number here is ported from the old `qwen-flash-nvfp4-rtx6000-tensorfold` recipe's session and is
+Every number here is ported from an earlier, unpublished one-GPU NVFP4 recipe's session and is
 **measured on the old pin**: engine `924d50a9d` plus its 15-patch series (tree `3236c674a`), release binary
 `15f909a78`, weights the control pack at `fc694b54`, one RTX PRO 6000 Blackwell. None of it is this
-recipe's pin (`1a3a10d9`, no series) or the shipped abliterated weights: the [RUNBOOK](../../RUNBOOK.md)
-re-measures the `default` profile and each arm on both before any number here is replaced.
+recipe's pin (`1a3a10d9` plus its series) or the shipped abliterated weights: this recipe's own numbers are in the
+repository [README](../../README.md) and [RUNBOOK](../../RUNBOOK.md).
 
 ## One GPU (the `default` profile's source, old `tp1`)
 
@@ -17,7 +17,7 @@ most 1.5%.
 | one GPU | 8,818 | 8,963 | 8,528 | 291 | 923 | 1,453 | 1,607 | 200 | 663 | 1,045 | 1,311 |
 | codex32 | does not fit (see [CAPACITY](CAPACITY.md)) | | | | | | | | | | |
 
-## Token hashes (the reference this migration must reproduce)
+## Token hashes (the reference this pin reproduces)
 
 sha256 of the token ids: cold 8K `fa345c10f631`, 32K `b59d8e0ea7d8`, 128K `974fa8bcd14d`; decode code
 `4e759dbd859c`, chat `764da77fbd3f` (full values in `gates/control.hashes.json`). The decode hashes matched

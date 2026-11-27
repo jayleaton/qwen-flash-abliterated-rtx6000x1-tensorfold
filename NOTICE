@@ -1,0 +1,53 @@
+qwen-flash-abliterated-rtx6000x1-tensorfold
+Copyright 2026 Jay Leaton (https://x.com/jayleaton)
+
+This project's recipe, kit, scripts, configs, patches and documentation are licensed under the Apache License,
+Version 2.0 (see LICENSE). If you redistribute this project or a modified version of it, keep this NOTICE file and
+the copyright line above, and state what you changed (Apache-2.0, section 4).
+
+This project builds on third-party work that keeps its own license. None of it is included here.
+
+TensorFold
+  https://github.com/ashhart/TensorFold
+  Fetched at build time at the commit in qwen-flash-abliterated-rtx6000x1/recipe.toml ([engine.cuda] rev); not
+  included here. The files in qwen-flash-abliterated-rtx6000x1/patches/ are modifications of TensorFold source,
+  authored by Jay Leaton as each patch's From line states. The changes are offered under Apache-2.0; the TensorFold
+  code they modify, and quote as diff context, stays under TensorFold's license, so keep TensorFold's copyright and
+  permission notices with any copy of a patched tree. TensorFold's NOTICE, reproduced verbatim:
+  ------------------------------------------------------------------------------------------------------------------
+  TensorFold
+  Copyright 2026 TensorFold contributors
+  https://github.com/ashhart/TensorFold
+
+  TensorFold is licensed under the Apache License, Version 2.0 (LICENSE) from 0.6.0.
+  Releases up to 0.5.0 were MIT-licensed, and code written before 0.6.0 keeps its
+  MIT notice in LICENSES/MIT.txt. Third-party code and its licenses are listed in
+  THIRD_PARTY_NOTICES.md.
+  ------------------------------------------------------------------------------------------------------------------
+
+MiaAI-Lab
+  https://github.com/MiaAI-Lab
+  The shared expert on a side stream, which this recipe serves, is MiaAI-Lab's work (MIT License, Copyright (c) 2026
+  MiaAI-Lab) and is now part of upstream TensorFold, which carries its notice. This repository's patches carry none
+  of MiaAI-Lab's code.
+
+Qwen3.8-Flash-Next
+  https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+  The base model, by the Qwen team, Qwen Community License 1.0. Not included.
+
+Qwen3.8-Flash-Next-ABLITERATED-NVFP4
+  https://huggingface.co/dealignai/Qwen3.8-Flash-Next-ABLITERATED-NVFP4 (revision
+  be794b990578ef3031eccf9f28e675a289a09ee9)
+  The served weights: dealignai's abliterated NVFP4 build of the Qwen base model, under the Qwen Community License
+  1.0 per its model card. Not included: each user downloads the checkpoint under the terms of its LICENSE.
+  qwen-flash-abliterated-rtx6000x1/config/weights.sha256 lists its published file hashes.
+
+Qwen3.8-Flash-Next-NVFP4
+  https://huggingface.co/nvidia/Qwen3.8-Flash-Next-NVFP4 (revision fc694b54fb0174e0913e6adf86691ef85a4ead47)
+  The control weights the recipe is measured against, by NVIDIA, under the NVIDIA Open Model License named on its
+  model card. Not included.
+
+Also credited, not included:
+  - xgrammar (https://github.com/mlc-ai/xgrammar), Apache License 2.0: built by the user as libtfgrammar.
+  - AdvBench, XSTest, MMLU and HumanEval: the evaluation datasets, downloaded by eval/fetch_data.py under their
+    own licenses.

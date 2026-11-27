@@ -1,10 +1,10 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: abl6000x1 tp1-series <tp1-series@localhost>
+From: Jay Leaton <58495321+jayleaton@users.noreply.github.com>
 Date: Fri, 27 Nov 2026 06:58:40 +0700
 Subject: [PATCH 02/12] flashnext cuda: TF_FLASHNEXT_GDN_SPLIT, the split
  DeltaNet prompt chain behind a load-time switch, off by default
 
-The GDN_SPLIT part of the 4-bit recipe's lane switches (qwen-flash-nvfp4-rtx6000-tensorfold 0006): a fused prompt
+The GDN_SPLIT part of the 4-bit recipe's lane switches (its patch 0006): a fused prompt
 pass takes fn_gdn_chain_split only with the switch on and an SM for each block (splitOn). Unset keeps main's
 fn_gdn_fused. The other lanes of that patch (L1, L2, L4-A) are TP2 or FP4-Local only and stay out.
 ---

@@ -1,5 +1,5 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: abl6000x1 tp1-series <tp1-series@localhost>
+From: Jay Leaton <58495321+jayleaton@users.noreply.github.com>
 Date: Fri, 27 Nov 2026 07:07:52 +0700
 Subject: [PATCH 11/12] adapt: the one-GPU series' Flash Next sources back
  under 600 lines
