@@ -1,5 +1,20 @@
 # TensorFold recipe kit
 
+This repository hosts one recipe beside a copy of the kit: [`qwen-flash-abliterated-rtx6000x1/`](qwen-flash-abliterated-rtx6000x1/README.md),
+the abliterated Qwen3.8 Flash Next NVFP4 recipe for one RTX PRO 6000, migrated from the private
+`qwen-flash-nvfp4-rtx6000-tensorfold` recipe. Its operations are in the repository RUNBOOK.
+
+The kit itself is a plain copy of the private `tensorfold-recipe-kit` at `main` **759c8b4e0abc**
+(`759c8b4e0abcecdc4c67d1712310ca7aed6cf4ea`, 2026-11-26): not a fork, not a submodule, no history carried,
+and the upstream kit takes no pull request from here. Every change to this repository lands by pull request
+into `main`, which is protected. The recipe's `[kit] rev` names a commit of this repository: a run from a
+checkout of exactly that revision is clean, and a run from any other checkout passes `--kit-dev`, which
+stamps its receipts `dev:`.
+
+Because a real recipe is hosted here, the real-names scan covers the template parts only
+(`make names`, `TEMPLATE_PARTS` in the Makefile) and `make test` runs every hosted recipe's own tests with
+the kit's.
+
 The shared kit for TensorFold recipes. A recipe is one `recipe.toml` plus only what is the model's own; the kit
 fetches and patches the engine, builds it, and (in later steps) serves, gates, benches, soaks and publishes it.
 
