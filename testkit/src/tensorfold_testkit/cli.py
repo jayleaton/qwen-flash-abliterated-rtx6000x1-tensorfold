@@ -206,6 +206,8 @@ def recorded(table: dict | None, profile: str | None) -> list[dict]:
             for seed, sha in zip(table["seeds"], row.get("sampled", []), strict=False)
         ]
     for row in (table or {}).get("cold", {}).values():
+        if "hash" not in row:  # optional: a cold row recorded before its first GPU run names only its prompt
+            continue
         ids = json.dumps(json.loads(row["path"].read_text()))
         out.append({"prompt": ids, "temperature": 0, "max_tokens": row["tokens"], "token_sha": row["hash"]})
     return out

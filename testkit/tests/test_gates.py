@@ -59,6 +59,12 @@ class Gates(unittest.TestCase):
         self.assertTrue(result.passed, result.line)
         self.assertRegex(result.line, r"up to ([2-9]|\d\d+) open at once")
 
+    def test_a_cold_row_without_a_hash_is_not_replayed(self):
+        prompt = Path(self.dir.name) / "ids.json"
+        prompt.write_text("[1, 2, 3]")
+        table = dict(hashes.load(self.table), cold={"3": {"prompt": "ids.json", "tokens": 16, "path": prompt}})
+        self.assertNotIn("[1, 2, 3]", [r["prompt"] for r in cli.recorded(table, None)])
+
     def test_every_gate_can_be_skipped(self):
         args = cli.parser().parse_args(["gate", "--mock", "--skip", ",".join(cli.ORDER)])
         self.assertEqual(cli.chosen(args), [])
