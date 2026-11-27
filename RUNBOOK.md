@@ -68,9 +68,9 @@ ends or would sit idle for more than about 30 minutes: it burns compute units.
 ### The bundle
 
 `qwen-flash-abliterated-rtx6000x1-876097bfb837` (engine tree `876097bf`, the pin plus `patches/loader`, `patches/tp1:0011` and
-`patches/re-pin`, built for `GPU=sm_120 CPU=x86_64_v3`), attached to this repository's release `engine-876097bfb837-sm120`:
+`patches/re-pin`, built for `GPU=sm_120 CPU=x86_64_v3`), attached to this repository's release `engine-876097bfb837-sm120-r2`:
 
-- bundle `.tar.gz` sha256 `56eacd05e804e018ea8efc8fac9252d7c6bc197256f6e069c36c1bb15ececc13`
+- bundle `.tar.gz` sha256 `3b39392ab498e9fd12b43e26033de25d57d88e7ededd6ab9929d785ecc818139`
 - `engine/zig-out/native/bin/tensorfold-native` sha256 `4ee7b682d62f1f9610249d5bdebbfde729b1e3c6f656c5a01b37efa61c490495`
 - the bundle's kit is this repository at the recipe's `[kit] rev`, so its receipts are clean, not `dev:`
 
@@ -78,8 +78,8 @@ ends or would sit idle for more than about 30 minutes: it burns compute units.
 
 ```sh
 W=$HOME/rental; mkdir -p "$W" && cd "$W"
-gh release download engine-876097bfb837-sm120 -R jayleaton/qwen-flash-abliterated-rtx6000x1-tensorfold
-echo "56eacd05e804e018ea8efc8fac9252d7c6bc197256f6e069c36c1bb15ececc13  qwen-flash-abliterated-rtx6000x1-876097bfb837.tar.gz" | sha256sum -c && tar xzf qwen-flash-abliterated-rtx6000x1-876097bfb837.tar.gz
+gh release download engine-876097bfb837-sm120-r2 -R jayleaton/qwen-flash-abliterated-rtx6000x1-tensorfold
+echo "3b39392ab498e9fd12b43e26033de25d57d88e7ededd6ab9929d785ecc818139  qwen-flash-abliterated-rtx6000x1-876097bfb837.tar.gz" | sha256sum -c && tar xzf qwen-flash-abliterated-rtx6000x1-876097bfb837.tar.gz
 gh repo clone jayleaton/qwen-flash-abliterated-rtx6000x1-tensorfold repo
 nohup bash repo/qwen-flash-abliterated-rtx6000x1/tools/rental.sh all > rental.log 2>&1 &
 ```

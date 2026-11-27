@@ -7,7 +7,7 @@
 [recipe]
 name = "qwen-flash-abliterated-rtx6000x1"
 model = "dealignai/Qwen3.8-Flash-Next-ABLITERATED-NVFP4"
-model_type = "flashnext"          # a key of the built binary's capabilities --json families
+model_type = "qwen4_exp"          # a key of the built binary's capabilities --json families (Flash Next)
 format = "modelopt-mixed"         # the family's ModelOpt mixed-precision format (NVFP4 experts)
 ships = ["default"]
 served_name = "flash"

@@ -135,7 +135,8 @@ step_control() {
   log "control: $(hashes_of "$OUT/hashes-control.json" | python3 -c 'import json, sys; d = json.load(sys.stdin); print(" ".join(f"{k} {v[\"greedy\"][:12]}" for k, v in d.items()))') (reference code 4e759dbd859c chat 764da77fbd3f)"
   log "control: cold 8K $(cold 8192 control) (hash, tok/s; reference fa345c10f631, 8,818 tok/s)"
   stop
-  "$RECIPE" bench --recipe "$R" default optimised "$E" "$CONTROL" --out "$OUT/bench-control" > "$OUT/bench-control.txt" 2>&1
+  "$RECIPE" bench --recipe "$R" default optimised "$E" "$CONTROL" --out "$OUT/bench-control" > "$OUT/bench-control.txt" 2>&1 \
+    || die "bench, control pack: $(tail -3 "$OUT/bench-control.txt" | tr '\n' ' ')"
   log "bench default vs optimised, control pack: $(grep -m1 'against default' "$OUT/bench-control.txt") (old tp1: code x1 291, cold 8K 8,818)"
 }
 
@@ -178,18 +179,22 @@ step_gate() {
   for target in default agent; do
     serve "gate-$target" "$target" "$MODEL"
     "$RECIPE" gate --recipe "$R" --tree "$E" "$target" --output "$OUT/gate-$target.json" --receipt "$OUT/gate-$target-receipt.json" > "$OUT/gate-$target.txt" 2>&1
+    local rc=$?
     log "gate $target: $(tail -1 "$OUT/gate-$target.txt")"
+    [ $rc = 0 ] || log "gate $target failed (rc $rc); continuing to the next profile"
     stop
   done
 }
 
 step_bench() {
-  "$RECIPE" bench --recipe "$R" default optimised "$E" "$MODEL" --out "$OUT/bench-shipped" > "$OUT/bench-shipped.txt" 2>&1
+  "$RECIPE" bench --recipe "$R" default optimised "$E" "$MODEL" --out "$OUT/bench-shipped" > "$OUT/bench-shipped.txt" 2>&1 \
+    || die "bench, shipped pack: $(tail -3 "$OUT/bench-shipped.txt" | tr '\n' ' ')"
   log "bench default vs optimised, shipped pack: $(grep -m1 'against default' "$OUT/bench-shipped.txt")"
 }
 
 step_soak() {
-  "$RECIPE" soak --recipe "$R" default "$E" "$MODEL" --out "$OUT/soak-default" > "$OUT/soak-default.txt" 2>&1
+  "$RECIPE" soak --recipe "$R" default "$E" "$MODEL" --out "$OUT/soak-default" > "$OUT/soak-default.txt" 2>&1 \
+    || die "soak: $(tail -3 "$OUT/soak-default.txt" | tr '\n' ' ')"
   log "soak default: $(tail -1 "$OUT/soak-default.txt")"
 }
 
