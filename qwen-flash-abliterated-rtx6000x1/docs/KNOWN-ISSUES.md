@@ -12,19 +12,26 @@ the draft head, so the rounding can change acceptance, never tokens. On one GB10
 conformance gate's `drafted` check (drafted equals plain) passes, and the head drafts 4.27 tokens a round on
 greedy code (nvidia's pack: 4.41 on a 6000), so the layout is right.
 
-## Not soak-tested
+## Soak-tested on `default` only
 
-No NVFP4 profile, old or new, has run a 30-minute soak of mixed traffic. On one GB10 a 10-minute soak of the
-shipped weights is STABLE (133 requests, 20 cancels and disconnects, 0 failed, probe hashes constant); the
-RUNBOOK's R4 step records the first 30-minute one on the 6000.
+On one RTX PRO 6000 a 30-minute `recipe soak default` of the shipped weights is STABLE (2,325 requests, 262
+cancels, 0 failed, probe hashes constant, free memory at least 14.78 GiB); the card peaked at 92 C at a 550 W cap.
+`optimised` and `agent` have not run a soak.
 
-## `optimised` does not fit at `--parallel 16`
+## `optimised` serves 12 streams, `agent` drops `TF_FLASHNEXT_CHUNK_SOLO`
 
-On one RTX PRO 6000 the `optimised` profile refuses to boot: `--parallel 16 needs 15.15 GiB for its streams at a
-16384-token window, and the CUDA memory budget leaves 11.36 GiB: serve --parallel 12, or lower --context`. The
-`default` profile boots with 14.0 GiB left, so a lever's own memory (`TF_FLASHNEXT_CHUNK_SOLO=8192`'s prompt
-passes of 8,192 rows are the likely one) takes the difference. Until a lever leaves `optimised` or its width
-drops to 12, `recipe bench default optimised` measures no `optimised` cell.
+On one RTX PRO 6000 `optimised` refused `--parallel 16`: `needs 15.15 GiB for its streams at a 16384-token window,
+and the CUDA memory budget leaves 11.36 GiB`. `TF_FLASHNEXT_CHUNK_SOLO=8192`'s prompt passes of 8,192 rows take
+about 2.6 GiB (`model 79.55 GiB` against `default`'s 76.91), so `optimised` now serves `--parallel 12`, with every
+lever kept and no headroom: 12 streams of 0.95 GiB in the 11.4 GiB left. `agent` inherits the levers but at
+139,264 x 3 needed 13.41 GiB of 11.34 GiB, so it drops `CHUNK_SOLO` and boots with 14.0 GiB left. `optimised`'s
+x16 bench cells are queued behind its 12 streams and do not compare with `default`'s.
+
+## Cold 32K needs a window over 32K
+
+The 16,384-token `default` and `optimised` profiles refuse the 32,768-token cold prompt, so `gates/hashes.json`
+carries the cold 8K row only (bench and soak probe every cold row); `prompts/ids-32768.json` stays for a profile
+with a wider window to record its row.
 
 ## Speed needs an honest power reading
 

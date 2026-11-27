@@ -72,7 +72,7 @@ hashes = "gates/hashes.json"
 # What recipe bench measures: ABBA (control A B B A control), a fresh server an arm. The first cell decides
 # "better"; any cell the bar below decides "worse". cold.SIZE cells need a cold row in gates/hashes.json.
 [bench]
-cells = ["decode.code.x1", "decode.chat.x1", "decode.code.x16", "decode.chat.x16", "cold.8192", "cold.32768"]
+cells = ["decode.code.x1", "decode.chat.x1", "decode.code.x16", "decode.chat.x16", "cold.8192"]
 rounds = 2
 bar = 0.03
 control = true
@@ -102,6 +102,7 @@ settings = { TF_FLASHNEXT_KEPT = "device" }
 # default for the ship profile.
 [profile.optimised]
 inherits = "default"
+parallel = 12
 settings = { TF_FLASHNEXT_KEPT = "host", TF_FLASHNEXT_GDN_SPLIT = "1", TF_FLASHNEXT_CHUNK_SOLO = "8192", TF_FLASHNEXT_ATTN_LANES = "1", TF_FLASHNEXT_ROLL_BATCH = "1", TF_FLASHNEXT_ROUTE_FUSED = "1", TF_FLASHNEXT_READOUT_DECODE = "1" }
 
 # The long-context agent window: 139,264 tokens is where coding agents stop compacting their history and
@@ -112,6 +113,7 @@ inherits = "optimised"
 context = 139264
 parallel = 3
 flags = { prompt-cache-gib = 32 }
+settings = { TF_FLASHNEXT_CHUNK_SOLO = false }
 
 # The one lever outside the ship profile: NVFP4 accepts fewer drafts than FP8, so 12 greedy drafts is
 # measured by its own arm before it joins anything.

@@ -165,20 +165,19 @@ step_hashes() {
   # R1b: the shipped pack's own hashes, recorded into the bundle's gates/hashes.json and this recipe's
   serve hashes default "$MODEL"
   record_hashes record
-  local c8 c32; c8=$(cold 8192 shipped); c32=$(cold 32768 shipped)
-  python3 - "$R/gates/hashes.json" "$(hashes_of "$OUT/hashes-record.json")" "${c8%% *}" "${c32%% *}" << 'EOF'
+  local c8; c8=$(cold 8192 shipped)
+  python3 - "$R/gates/hashes.json" "$(hashes_of "$OUT/hashes-record.json")" "${c8%% *}" << 'EOF'
 import json, re, sys
-path, rows, c8, c32 = sys.argv[1], json.loads(sys.argv[2]), sys.argv[3], sys.argv[4]
+path, rows, c8 = sys.argv[1], json.loads(sys.argv[2]), sys.argv[3]
 table = json.load(open(path))
 table["expected"] = {"*": rows}
-for size, digest in (("8192", c8), ("32768", c32)):
-    if re.fullmatch(r"[0-9a-f]{64}", digest):
-        table["cold"][size]["hash"] = digest
+if re.fullmatch(r"[0-9a-f]{64}", c8):
+    table["cold"]["8192"]["hash"] = c8
 open(path, "w").write(json.dumps(table, indent=1) + "\n")
 EOF
   cp "$R/gates/hashes.json" "$OUT/hashes.json"
   cp "$R/gates/hashes.json" "$HOME_RECIPE/gates/hashes.json"
-  log "shipped: recorded gates/hashes.json (commit it from $HOME_RECIPE); cold 8K $c8, 32K $c32 (hash, tok/s)"
+  log "shipped: recorded gates/hashes.json (commit it from $HOME_RECIPE); cold 8K $c8 (hash, tok/s)"
   stop
 }
 

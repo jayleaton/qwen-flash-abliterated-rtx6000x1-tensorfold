@@ -26,16 +26,34 @@
   }
  },
  "expected": {
-  "*": {}
+  "*": {
+   "fibonacci-raw": {
+    "greedy": "80a5e186a17cb9dc1076cb5d158c82af51f32c9bac886f98686b4ab94cb67878",
+    "sampled": [
+     "bb24e6e19be51fc9ecf943c6ba14e6bbf6aee922b63946cb5386a0508336e874",
+     "bcbe05a58136487acd65c47487b931d6adff2cb5fa2243e009a11d30637e6f82",
+     "bbc75b29bbfe306748e83d08cfe9946778048e58df510def9ef1f5e57806e566",
+     "abdde435eb9f15dd800bd06e3a041a47cdfc5b26eaa1e685218fcae406a6d469",
+     "0f12f3a3aa50a2562374d00a1a77c5599fb06cb8aea2af18fd75ead3be7dc614"
+    ]
+   },
+   "gpu-chat-no-think": {
+    "greedy": "9b016afeff58e4538488e656b81e05ae3cc07661d9ce6f842d38f10b9388b2e5",
+    "sampled": [
+     "f5c4e00999229578951404269776580b241fdcde59b40f6bee2ef7b833b39472",
+     "e58a3c855d79d08f632ec5d45fb1ecd1fef5bc7a05e66745735495a1987a3c2b",
+     "3f57ee07bae9017d039441890288d68e1f6f4ada02a5f2549f69dcb09b679725",
+     "76c1f1805b97a9946a92008ee0409d2dcc95fa95d74ea26843b97124861addc1",
+     "6346f756635a52de56287703301e64183875947daa8a00bb82e5f45eba89f434"
+    ]
+   }
+  }
  },
  "cold": {
   "8192": {
    "prompt": "../prompts/ids-8192.json",
-   "tokens": 16
-  },
-  "32768": {
-   "prompt": "../prompts/ids-32768.json",
-   "tokens": 16
+   "tokens": 16,
+   "hash": "16307318fc93f8704797253fa2f57ffc4255f8c301496ba9218640ea3fcc06a7"
   }
  }
 }

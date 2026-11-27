@@ -56,10 +56,13 @@ class Profiles_(unittest.TestCase):
         rendered = profiles.render(plan(), "agent", {})
         self.assertEqual(rendered.args[:4], ["--context", "139264", "--parallel", "3"])
         self.assertIn("--prompt-cache-gib", rendered.args)
-        self.assertEqual(rendered.env, profiles.render(plan(), "optimised", {}).env)
+        optimised = dict(profiles.render(plan(), "optimised", {}).env)
+        del optimised["TF_FLASHNEXT_CHUNK_SOLO"]
+        self.assertEqual(rendered.env, optimised)
 
     def test_the_ship_profile_sets_every_expected_lever(self):
         rendered = profiles.render(plan(), "optimised", {})
+        self.assertEqual(rendered.args[:4], ["--context", "16384", "--parallel", "12"])
         self.assertEqual(
             rendered.env,
             {
