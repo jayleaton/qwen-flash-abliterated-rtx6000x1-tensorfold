@@ -45,19 +45,34 @@ class Profiles_(unittest.TestCase):
         rendered = profiles.render(plan(), "default", hardware.load("rtx6000x1").env)
         self.assertEqual(rendered.args, OLD_TP1_ARGS)
         self.assertEqual(rendered.ranks, 1)
-        self.assertEqual(rendered.env, {})
+        self.assertEqual(rendered.env, {"TF_FLASHNEXT_KEPT": "device"})
         self.assertEqual(rendered.experiments, {})
 
     def test_the_agent_profile_widens_the_window_and_thins_the_streams(self):
         rendered = profiles.render(plan(), "agent", {})
-        self.assertEqual(rendered.args, ["--context", "139264", "--parallel", "4"])
+        self.assertEqual(rendered.args[:4], ["--context", "139264", "--parallel", "3"])
+        self.assertIn("--prompt-cache-gib", rendered.args)
+        self.assertEqual(rendered.env, profiles.render(plan(), "optimised", {}).env)
 
-    def test_the_arms_set_only_the_expected_levers(self):
-        rendered = profiles.render(plan(), "optimised-stack", {})
+    def test_the_ship_profile_sets_every_expected_lever(self):
+        rendered = profiles.render(plan(), "optimised", {})
         self.assertEqual(
-            rendered.experiments,
-            {"TF_FLASHNEXT_ATTN_LANES": "1", "TF_FLASHNEXT_CHUNK_SOLO": "8192", "TF_FLASHNEXT_DRAFTS_GREEDY": "12"},
+            rendered.env,
+            {
+                "TF_FLASHNEXT_ATTN_LANES": "1",
+                "TF_FLASHNEXT_CHUNK_SOLO": "8192",
+                "TF_FLASHNEXT_GDN_SPLIT": "1",
+                "TF_FLASHNEXT_KEPT": "host",
+                "TF_FLASHNEXT_READOUT_DECODE": "1",
+                "TF_FLASHNEXT_ROLL_BATCH": "1",
+                "TF_FLASHNEXT_ROUTE_FUSED": "1",
+            },
         )
+
+    def test_the_one_experiment_is_measured_by_its_own_arm(self):
+        rendered = profiles.render(plan(), "drafts-greedy", {})
+        self.assertEqual(rendered.experiments, {"TF_FLASHNEXT_DRAFTS_GREEDY": "12"})
+        self.assertEqual(rendered.env, {**rendered.experiments, "TF_FLASHNEXT_KEPT": "device"})
 
     def test_every_switch_row_and_profile_passes_the_rules(self):
         today = datetime.date(2026, 11, 27)

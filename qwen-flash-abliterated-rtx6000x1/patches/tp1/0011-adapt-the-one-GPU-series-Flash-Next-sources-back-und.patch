@@ -1,0 +1,305 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: abl6000x1 tp1-series <tp1-series@localhost>
+Date: Fri, 27 Nov 2026 07:07:52 +0700
+Subject: [PATCH 11/12] adapt: the one-GPU series' Flash Next sources back
+ under 600 lines
+
+cuda_batch.zig and cuda_prompt.zig each sat at the limit on main. argmax moves to cuda_argmax.zig (as the FP8
+recipe's 0081 does), Engine.keptOn moves to cuda_snap.keptOn, the fused router's fallback moves into
+cuda_route_fused.route, and the split-or-fused GDN choice into cuda_gdn_fused.launchForm. Same launches.
+---
+ zig/src/families/flashnext/cuda_argmax.zig    | 20 +++++++++++++++++
+ zig/src/families/flashnext/cuda_batch.zig     | 15 +++----------
+ zig/src/families/flashnext/cuda_disk.zig      |  2 +-
+ zig/src/families/flashnext/cuda_gdn_fused.zig |  6 +++++
+ .../families/flashnext/cuda_lanes_snap.zig    |  8 +++----
+ .../families/flashnext/cuda_moe_native.zig    |  3 +--
+ zig/src/families/flashnext/cuda_prompt.zig    | 22 ++-----------------
+ .../families/flashnext/cuda_rank_engine.zig   |  8 +++----
+ .../families/flashnext/cuda_route_fused.zig   |  9 ++++++++
+ zig/src/families/flashnext/cuda_snap.zig      |  5 +++++
+ 10 files changed, 55 insertions(+), 43 deletions(-)
+ create mode 100644 zig/src/families/flashnext/cuda_argmax.zig
+
+diff --git a/zig/src/families/flashnext/cuda_argmax.zig b/zig/src/families/flashnext/cuda_argmax.zig
+new file mode 100644
+index 000000000..ca0b16fe4
+--- /dev/null
++++ b/zig/src/families/flashnext/cuda_argmax.zig
+@@ -0,0 +1,20 @@
++//! The greedy token of one row of BF16 logits (cuda_prompt.zig's argmax).
++const std = @import("std");
++const weights = @import("cuda_prompt_wt.zig");
++const vocab = weights.vocab;
++const promote = weights.promote;
++
++/// The first index of the largest of `vocab` little-endian BF16 logits.
++pub fn argmax(raw: []const u8) u32 {
++    var best = promote(std.mem.readInt(u16, raw[0..2], .little));
++    var at: usize = 0;
++    var i: usize = 1;
++    while (i < vocab) : (i += 1) {
++        const v = promote(std.mem.readInt(u16, raw[2 * i ..][0..2], .little));
++        if (v > best) {
++            best = v;
++            at = i;
++        }
++    }
++    return @intCast(at);
++}
+diff --git a/zig/src/families/flashnext/cuda_batch.zig b/zig/src/families/flashnext/cuda_batch.zig
+index 975233835..f9e544c60 100644
+--- a/zig/src/families/flashnext/cuda_batch.zig
++++ b/zig/src/families/flashnext/cuda_batch.zig
+@@ -10,13 +10,11 @@ const load = @import("cuda_prompt_load.zig");
+ const parts = @import("cuda_batch_state.zig");
+ const late = @import("cuda_batch_late.zig");
+ const hc = @import("cuda_batch_hc.zig");
+-const decode = @import("cuda_readout_decode.zig");
+ const gdn_lanes = @import("cuda_batch_gdn_lanes.zig");
+ const batch_lanes = @import("cuda_batch_lanes.zig");
+ const tiles = @import("cuda_tiles.zig");
+ const tk = @import("cuda_tile_kernels.zig");
+ const moe_native = @import("cuda_moe_native.zig");
+-const route_fused = @import("cuda_route_fused.zig");
+ const zs = @import("cuda_zero_slice.zig");
+ const ops = @import("cuda_batch_ops.zig");
+ const split_lane = @import("cuda_split_lane.zig");
+@@ -199,7 +197,7 @@ pub fn Pass(comptime Tri: type) type {
+             const xs_act = s.xs_act + r0 * (low / 32) * 4;
+             if (hc_w.down.native != null) {
+                 if (std.meta.eql(keep, HcKeep{}) and hc.promptFused(self, hc_w, n)) return tiles.readoutFused(self.tri, self.k, self.stream, self.s, hc_w, r0, n);
+-                if (std.meta.eql(keep, HcKeep{}) and decode.takes(self, hc_w, n)) return decode.readout(self, hc_w, r0, n);
++                if (std.meta.eql(keep, HcKeep{}) and tiles.decode.takes(self, hc_w, n)) return tiles.decode.readout(self, hc_w, r0, n);
+                 try self.tri.hcNormalize(h, pss, hc_w.scale.ptr, norm, eps, n, dims, streams);
+                 return hc.readoutNative(self, hc_w, r0, n);
+             }
+@@ -265,9 +263,7 @@ pub fn Pass(comptime Tri: type) type {
+                 // the three in one kernel a value head: the same per-row op sequences, no fp32 rows through memory
+                 const st = self.seq.state[li].ptr;
+                 const in: gdn_fused.In = .{ .proj = s.proj, .conv = self.seq.conv[li].ptr, .cw = lw.cw.ptr, .a_log = lw.a_log.ptr, .dt = lw.dt.ptr, .state = st, .state_out = if (keep.state_out != 0) keep.state_out else st, .norm = lw.norm.ptr, .heads = h, .cuts = cuts };
+-                if (self.k.forms.gdn_split and gdn_fused.splitOn(self.k.forms.sms, h)) {
+-                    try gdn_fused.split(g, self.stream, in, n, .{ .q = s.gq, .k = s.gk, .v = s.gv, .gb = s.ggb, .ys = s.ys }, s.gout, s.gxs);
+-                } else try gdn_fused.launch(g.fused, self.stream, in, n, s.gout, s.gxs);
++                try gdn_fused.launchForm(g, self.k.forms, self.stream, in, n, .{ .q = s.gq, .k = s.gk, .v = s.gv, .gb = s.ggb, .ys = s.ys }, s.gout, s.gxs);
+             } else if (self.lanes.len == 0 and keep.log != 0) {
+                 // pending rows (one GPU, whole heads: --tp refuses them): the window goes into the log after them
+                 try late.front(self.k, self.stream, lw, s.proj, self.seq.conv[li].ptr, n, s.gq, keep);
+@@ -452,12 +448,7 @@ pub fn Pass(comptime Tri: type) type {
+             const pairs = n * s.slots;
+             try self.copy(keep.moe_x, s.mixed, n * dims * 2);
+             const plan: cuda.grouped.Plan = .{ .members = s.members, .items = s.items, .counts = s.counts, .rank = s.rank, .hist = s.hist };
+-            // TF_FLASHNEXT_ROUTE_FUSED: the same logits, picks, weights, own picks and plan in two launches
+-            const routed = if (lw.native_experts) |*native| try route_fused.run(self, native, n, lw.router.ptr, plan) else false;
+-            if (!routed) {
+-                try self.tri.routerMany(s.mixed, lw.router.ptr, s.router_l, dims, n);
+-                try self.tri.topkMany(s.router_l, s.picks, s.wts, n, s.slots);
+-            }
++            const routed = try @import("cuda_route_fused.zig").route(self, lw, n, plan); // TF_FLASHNEXT_ROUTE_FUSED
+             try self.copy(keep.moe_ids, s.picks, pairs * 4);
+             try self.copy(keep.moe_wts, s.wts, pairs * 4);
+             const e = experts_n + 1;
+diff --git a/zig/src/families/flashnext/cuda_disk.zig b/zig/src/families/flashnext/cuda_disk.zig
+index 7c2357cb1..5ac452d97 100644
+--- a/zig/src/families/flashnext/cuda_disk.zig
++++ b/zig/src/families/flashnext/cuda_disk.zig
+@@ -81,7 +81,7 @@ pub fn View(comptime F: type) type {
+ 
+         /// A kept state's memory for `at` tokens with the head's rows if this server drafts, filled by `scatter`.
+         pub fn blank(c: *Target, at: u32) !*State {
+-            return snap.prepare(c.gpa, c.engine.driver, c.engine.keptOn(), at, .{ 0, 0 }, c.head != null, .full);
++            return snap.prepare(c.gpa, c.engine.driver, snap.keptOn(c.engine), at, .{ 0, 0 }, c.head != null, .full);
+         }
+ 
+         /// A state from a stream that did not draft lacks the head's rows this server's parts name: it stays off disk.
+diff --git a/zig/src/families/flashnext/cuda_gdn_fused.zig b/zig/src/families/flashnext/cuda_gdn_fused.zig
+index 6f20cc5f5..9b37024a7 100644
+--- a/zig/src/families/flashnext/cuda_gdn_fused.zig
++++ b/zig/src/families/flashnext/cuda_gdn_fused.zig
+@@ -65,6 +65,12 @@ pub fn splitOn(sms: u32, h: Heads) bool {
+ /// The unfused rows the split form passes through memory: fn_gdn_front's outputs and the chain's readouts.
+ pub const Rows = struct { q: u64, k: u64, v: u64, gb: u64, ys: u64 };
+ 
++/// A fused pass's GDN block: the split chain with TF_FLASHNEXT_GDN_SPLIT and an SM a block (splitOn), else `launch`.
++pub fn launchForm(g: *const Gdn, forms: anytype, stream: cuda.Stream, in: In, rows: usize, r: Rows, out: u64, xs: u64) !void {
++    if (forms.gdn_split and splitOn(forms.sms, in.heads)) return split(g, stream, in, rows, r, out, xs);
++    return launch(g.fused, stream, in, rows, out, xs);
++}
++
+ /// The split form of `launch`: fn_gdn_front, fn_gdn_chain_split (marks included) and fn_gdn_norm, launch's bits.
+ pub fn split(g: *const Gdn, stream: cuda.Stream, in: In, rows: usize, r: Rows, out: u64, xs: u64) !void {
+     const h = in.heads;
+diff --git a/zig/src/families/flashnext/cuda_lanes_snap.zig b/zig/src/families/flashnext/cuda_lanes_snap.zig
+index a21b066bc..1b5809926 100644
+--- a/zig/src/families/flashnext/cuda_lanes_snap.zig
++++ b/zig/src/families/flashnext/cuda_lanes_snap.zig
+@@ -26,7 +26,7 @@ pub fn Snaps(comptime Cuda: type) type {
+             const inpass = forms.in_pass and self.ranks == null and l.seq.media == null and forms.gdn_fused;
+             for (s.reuse.marks) |m| if (m > at and m < stop0) {
+                 if (inpass and n < parts.max_marks) {
+-                    if (snap.prepare(self.gpa, self.engine.driver, self.engine.keptOn(), m, historyAt(l.seq.history, ids, at, m), l.draft != null, l.seq.heads)) |p| {
++                    if (snap.prepare(self.gpa, self.engine.driver, snap.keptOn(self.engine), m, historyAt(l.seq.history, ids, at, m), l.draft != null, l.seq.heads)) |p| {
+                         l.prepared[n] = p;
+                         marks[n] = .{ .at = m, .base = p.buf.ptr };
+                         n += 1;
+@@ -68,12 +68,12 @@ pub fn Snaps(comptime Cuda: type) type {
+ 
+         pub fn trim(ptr: *anyopaque, room: u64) void {
+             if (of(ptr).ranks) |r| return r.trimSpares(room);
+-            if (of(ptr).engine.keptOn()) |s| s.trim(room);
++            if (snap.keptOn(of(ptr).engine)) |s| s.trim(room);
+         }
+ 
+         /// Whether a state at `at` takes a spare: a host state, with a spare of its rounded size.
+         pub fn reuses(ptr: *anyopaque, at: u32) bool {
+-            const s = of(ptr).engine.keptOn() orelse return false;
++            const s = snap.keptOn(of(ptr).engine) orelse return false;
+             return s.fits(bytes(ptr, at));
+         }
+ 
+@@ -91,7 +91,7 @@ pub fn Snaps(comptime Cuda: type) type {
+             // pending DeltaNet rows into the states first: a snapshot holds them as they stand
+             if (l.draft) |*d| try self.ops().flushLate(&l.seq, d);
+             if (self.ranks) |r| return try r.save(&l.seq, if (l.draft) |*d| d else null);
+-            return try snap.save(self.gpa, self.engine.driver, self.engine.keptOn(), self.stream, &l.seq, if (l.draft) |*d| d else null);
++            return try snap.save(self.gpa, self.engine.driver, snap.keptOn(self.engine), self.stream, &l.seq, if (l.draft) |*d| d else null);
+         }
+ 
+         /// The kept state the stream's reuse names, restored when it fits: the prompt pass starts there.
+diff --git a/zig/src/families/flashnext/cuda_moe_native.zig b/zig/src/families/flashnext/cuda_moe_native.zig
+index 63537d108..2e2114054 100644
+--- a/zig/src/families/flashnext/cuda_moe_native.zig
++++ b/zig/src/families/flashnext/cuda_moe_native.zig
+@@ -74,8 +74,7 @@ pub fn fp8(k: *const Kernels, stream: cuda.Stream, picks: u64, x: u64, layer: cu
+     try k.fp8.run(stream, .down_f32, .{ .x = act, .stride = layer.width }, layer, plan, prompt, out, items, experts_n);
+ }
+ 
+-/// The tile a native layer's plan groups `n` rows' pairs by for the fused router (cuda_route_fused.zig), null for a
+-/// format it does not plan: NVFP4 only, the block-FP8 path routes its own global ids.
++/// The tile the fused router (cuda_route_fused.zig) plans n rows by: NVFP4 only, else null.
+ pub fn routeTile(k: *const Kernels, owned: anytype, n: usize) ?usize {
+     return switch (owned.format) {
+         .nvfp4 => nvfp4_tile.size(k, n),
+diff --git a/zig/src/families/flashnext/cuda_prompt.zig b/zig/src/families/flashnext/cuda_prompt.zig
+index f74d41360..3b52f249a 100644
+--- a/zig/src/families/flashnext/cuda_prompt.zig
++++ b/zig/src/families/flashnext/cuda_prompt.zig
+@@ -39,19 +39,7 @@ const loadHc = weights.loadHc;
+ const stitch = weights.stitch;
+ const Layer = load.Layer;
+ const loadLayer = load.loadLayer;
+-pub fn argmax(raw: []const u8) u32 {
+-    var best = promote(std.mem.readInt(u16, raw[0..2], .little));
+-    var at: usize = 0;
+-    var i: usize = 1;
+-    while (i < vocab) : (i += 1) {
+-        const v = promote(std.mem.readInt(u16, raw[2 * i ..][0..2], .little));
+-        if (v > best) {
+-            best = v;
+-            at = i;
+-        }
+-    }
+-    return @intCast(at);
+-}
++pub const argmax = @import("cuda_argmax.zig").argmax;
+ /// `n` zeroed buffers, the fill on the compute stream: a legacy-stream memset returns before it lands.
+ pub fn zeros(gpa: std.mem.Allocator, driver: *cuda.Driver, stream: cuda.Stream, n: usize, len: usize) ![]cuda.DeviceBuffer {
+     const Zeroed = struct {
+@@ -124,8 +112,7 @@ pub const Engine = struct {
+     busy_chunk: usize = batch.default_chunk,
+     /// The heads every model layer holds on this rank, which each stream's caches take (the MTP head's are full).
+     heads: Heads = .full,
+-    /// A discrete card's freed pinned buffers, its kept states in mapped host memory (cuda_snap.onHost); null: device.
+-    kept: ?cuda.HostSpares = null,
++    kept: ?cuda.HostSpares = null, // a discrete card's pinned kept states' freed buffers (cuda_snap.onHost); null: device
+     round_graph: round_graph.Cache = .{},
+     graphs: @import("cuda_window_graph.zig").Graphs = .{}, // drafted windows, draft-head pieces, rollbacks on one GPU
+     image_factory: ?*@import("cuda_images.zig").Vision = null,
+@@ -238,11 +225,6 @@ pub const Engine = struct {
+         return e;
+     }
+ 
+-    /// Where kept states go: the spares a discrete card's pinned states come from and return to; null: device memory.
+-    pub fn keptOn(e: *Engine) ?*cuda.HostSpares {
+-        return if (e.kept) |*s| s else null;
+-    }
+-
+     pub fn deinit(e: *Engine) void {
+         if (e.kept) |*s| s.deinit();
+         e.round_graph.clear();
+diff --git a/zig/src/families/flashnext/cuda_rank_engine.zig b/zig/src/families/flashnext/cuda_rank_engine.zig
+index 184abe810..2f6d80ac9 100644
+--- a/zig/src/families/flashnext/cuda_rank_engine.zig
++++ b/zig/src/families/flashnext/cuda_rank_engine.zig
+@@ -265,7 +265,7 @@ pub const Session = struct {
+ 
+     /// The leader's copy, the head's rows in it with `d`; the peer has no head, and first flushes its pending rows.
+     pub fn save(s: *Session, q: *prompt.Seq, d: ?*mtp.Draft) !*snaps.Snap {
+-        const kept = try snaps.save(s.gpa, s.engine.driver, s.engine.keptOn(), s.engine.stream.*, q, d);
++        const kept = try snaps.save(s.gpa, s.engine.driver, snaps.keptOn(s.engine), s.engine.stream.*, q, d);
+         errdefer snaps.drop(s.gpa, s.engine.stream.*, kept);
+         kept.rank_id = s.next_object;
+         s.next_object = std.math.add(u64, s.next_object, 1) catch return error.BadRankFrame;
+@@ -298,7 +298,7 @@ pub const Session = struct {
+ 
+     /// The prompt cache's trim on every rank: each rank's freed pinned buffers kept to at most `most` bytes.
+     pub fn trimSpares(s: *Session, most: u64) void {
+-        const own = s.engine.keptOn() orelse return; // device states: no rank keeps spares
++        const own = snaps.keptOn(s.engine) orelse return; // device states: no rank keeps spares
+         own.trim(most);
+         if (s.stopped) return;
+         const h = s.command(.{ .kind = .trim_spares, .arg = most }, &.{}) catch return s.poison();
+@@ -400,7 +400,7 @@ pub const Session = struct {
+                     const ops: mtp.Ops(Tri) = .{ .e = s.engine, .tri = tri, .h = undefined };
+                     try ops.flushLate(q, w); // the state holds them as the leader's does
+                 }
+-                const kept = try snaps.save(s.gpa, s.engine.driver, s.engine.keptOn(), s.engine.stream.*, q, null);
++                const kept = try snaps.save(s.gpa, s.engine.driver, snaps.keptOn(s.engine), s.engine.stream.*, q, null);
+                 errdefer snaps.drop(s.gpa, s.engine.stream.*, kept);
+                 try s.saved.put(s.gpa, h.arg, kept);
+             },
+@@ -414,7 +414,7 @@ pub const Session = struct {
+                 const entry = s.saved.fetchRemove(h.object) orelse return error.UnknownRankSnapshot;
+                 snaps.drop(s.gpa, s.engine.stream.*, entry.value);
+             },
+-            .trim_spares => if (s.engine.keptOn()) |own| own.trim(h.arg),
++            .trim_spares => if (snaps.keptOn(s.engine)) |own| own.trim(h.arg),
+             .stop => return true,
+             else => return error.BadRankFrame,
+         }
+diff --git a/zig/src/families/flashnext/cuda_route_fused.zig b/zig/src/families/flashnext/cuda_route_fused.zig
+index e26a36dff..f0c04f5ba 100644
+--- a/zig/src/families/flashnext/cuda_route_fused.zig
++++ b/zig/src/families/flashnext/cuda_route_fused.zig
+@@ -30,6 +30,15 @@ pub fn takes(t: anytype, k: anytype, native: *const mixed.Owned, n: usize) ?*con
+     return ours(t);
+ }
+ 
++/// moeBlockKeep's router and top-k: the fused launches where they take the pass (true: own picks and plan written too).
++pub fn route(self: anytype, lw: anytype, n: usize, plan: cuda.grouped.Plan) !bool {
++    if (lw.native_experts) |*native| if (try run(self, native, n, lw.router.ptr, plan)) return true;
++    const s = self.s;
++    try self.tri.routerMany(s.mixed, lw.router.ptr, s.router_l, wt.dims, n);
++    try self.tri.topkMany(s.router_l, s.picks, s.wts, n, s.slots);
++    return false;
++}
++
+ /// moeBlockKeep's router, top-k, own picks and plan for a native layer: the spread logits, then tf_route_topk_plan.
+ pub fn run(self: anytype, native: *const mixed.Owned, n: usize, router_w: u64, plan: cuda.grouped.Plan) !bool {
+     const g = takes(self.tri, self.k, native, n) orelse return false;
+diff --git a/zig/src/families/flashnext/cuda_snap.zig b/zig/src/families/flashnext/cuda_snap.zig
+index 4be95e4c2..a33000864 100644
+--- a/zig/src/families/flashnext/cuda_snap.zig
++++ b/zig/src/families/flashnext/cuda_snap.zig
+@@ -338,3 +338,8 @@ test "a discrete card keeps states in mapped pinned host memory, pinned once for
+ test {
+     _ = @import("cuda_paging_snap_test.zig");
+ }
++
++/// Where an engine's kept states go: the spares a discrete card's pinned states come from and return to; null: device.
++pub fn keptOn(e: *prompt.Engine) ?*cuda.HostSpares {
++    return if (e.kept) |*sp| sp else null;
++}
+-- 
+2.56.0
+

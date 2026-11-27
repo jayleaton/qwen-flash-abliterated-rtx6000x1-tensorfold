@@ -1,0 +1,114 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: abl6000x1 tp1-series <tp1-series@localhost>
+Date: Fri, 27 Nov 2026 06:58:40 +0700
+Subject: [PATCH 02/12] flashnext cuda: TF_FLASHNEXT_GDN_SPLIT, the split
+ DeltaNet prompt chain behind a load-time switch, off by default
+
+The GDN_SPLIT part of the 4-bit recipe's lane switches (qwen-flash-nvfp4-rtx6000-tensorfold 0006): a fused prompt
+pass takes fn_gdn_chain_split only with the switch on and an SM for each block (splitOn). Unset keeps main's
+fn_gdn_fused. The other lanes of that patch (L1, L2, L4-A) are TP2 or FP4-Local only and stay out.
+---
+ docs/environment.md                               | 1 +
+ zig/src/families/flashnext/cuda_batch.zig         | 2 +-
+ zig/src/families/flashnext/cuda_batch_kernels.zig | 2 ++
+ zig/src/families/flashnext/cuda_gdn_fused.zig     | 5 +++++
+ zig/src/platform/environment.zig                  | 1 +
+ zig/src/platform/environment_flashnext_test.zig   | 4 ++--
+ 6 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/docs/environment.md b/docs/environment.md
+index 4e40e7bab..b59a2fbb0 100644
+--- a/docs/environment.md
++++ b/docs/environment.md
+@@ -216,6 +216,7 @@ stops the start with the variable, the supplied text and the accepted forms.
+ | `TF_FLASHNEXT_GPU_TOPK` | Exactly `0` or `1`; default on |
+ | `TF_FLASHNEXT_BATCH_GDN_WIDE` | Exactly `0` or `1`; default off. Metal batch segments of 8 or 16 rows use non-replay GDN when enabled |
+ | `TF_FLASHNEXT_GDN_FUSED` | Exactly `0` or `1`; default on |
++| `TF_FLASHNEXT_GDN_SPLIT` | Exactly `0` or `1`; default off. `1` runs a fused prompt pass's DeltaNet chain over two blocks a value head when the device has an SM for each block, with the same bits |
+ | `TF_FLASHNEXT_GDN_CHAIN_TPR` | Exactly `0` or `1`; default off: opt into the two-thread reduction for ordinary recurrence rows below 64 |
+ | `TF_FLASHNEXT_GDN_LANES` | Exactly `0` or `1`; default on |
+ | `TF_FLASHNEXT_BATCH_HEADS` | Exactly `0` or `1`; default on |
+diff --git a/zig/src/families/flashnext/cuda_batch.zig b/zig/src/families/flashnext/cuda_batch.zig
+index 26ea77399..66baac741 100644
+--- a/zig/src/families/flashnext/cuda_batch.zig
++++ b/zig/src/families/flashnext/cuda_batch.zig
+@@ -262,7 +262,7 @@ pub fn Pass(comptime Tri: type) type {
+                 // the three in one kernel a value head: the same per-row op sequences, no fp32 rows through memory
+                 const st = self.seq.state[li].ptr;
+                 const in: gdn_fused.In = .{ .proj = s.proj, .conv = self.seq.conv[li].ptr, .cw = lw.cw.ptr, .a_log = lw.a_log.ptr, .dt = lw.dt.ptr, .state = st, .state_out = if (keep.state_out != 0) keep.state_out else st, .norm = lw.norm.ptr, .heads = h, .cuts = cuts };
+-                if (gdn_fused.splitOn(self.k.forms.sms, h)) {
++                if (self.k.forms.gdn_split and gdn_fused.splitOn(self.k.forms.sms, h)) {
+                     try gdn_fused.split(g, self.stream, in, n, .{ .q = s.gq, .k = s.gk, .v = s.gv, .gb = s.ggb, .ys = s.ys }, s.gout, s.gxs);
+                 } else try gdn_fused.launch(g.fused, self.stream, in, n, s.gout, s.gxs);
+             } else if (self.lanes.len == 0 and keep.log != 0) {
+diff --git a/zig/src/families/flashnext/cuda_batch_kernels.zig b/zig/src/families/flashnext/cuda_batch_kernels.zig
+index 1dbf70335..d98e49998 100644
+--- a/zig/src/families/flashnext/cuda_batch_kernels.zig
++++ b/zig/src/families/flashnext/cuda_batch_kernels.zig
+@@ -43,6 +43,7 @@ pub const Forms = struct {
+     gdn_fused: bool = true, // TF_FLASHNEXT_GDN_FUSED
+     gdn_chain_tpr: bool = false, // TF_FLASHNEXT_GDN_CHAIN_TPR
+     sms: u32 = 0, // the device's multiprocessors: the fused block's passes split their chains on enough (splitOn)
++    gdn_split: bool = false, // TF_FLASHNEXT_GDN_SPLIT
+     hc_fuse: bool = true, // TF_FLASHNEXT_HC_FUSE
+     in_pass: bool = true, // TF_FLASHNEXT_KEEP_INPASS
+     readout_rows: usize = 64, // TF_FLASHNEXT_READOUT_ROWS (maxInt: never)
+@@ -52,6 +53,7 @@ pub const Forms = struct {
+     pub fn resolve() Forms {
+         return .{
+             .gdn_fused = gdn_fused.on(),
++            .gdn_split = gdn_fused.splitWanted(),
+             .gdn_chain_tpr = @import("cuda_gdn.zig").chainTpr(),
+             .hc_fuse = @import("cuda_batch_hc.zig").on(),
+             .in_pass = @import("cuda_lanes_snap.zig").keepInPass(),
+diff --git a/zig/src/families/flashnext/cuda_gdn_fused.zig b/zig/src/families/flashnext/cuda_gdn_fused.zig
+index c46d4fc7d..6f20cc5f5 100644
+--- a/zig/src/families/flashnext/cuda_gdn_fused.zig
++++ b/zig/src/families/flashnext/cuda_gdn_fused.zig
+@@ -52,6 +52,11 @@ pub const split_threads: u32 = split_rows * split_tpr;
+ /// fn_gdn_chain_split's staged rows: 2 x 16 steps of q, k (128 fp32 each), its v rows, g and beta.
+ pub const split_smem: u32 = 2 * 16 * ((2 * 128 + split_rows) * 4 + 16);
+ 
++/// TF_FLASHNEXT_GDN_SPLIT: fused passes may split their chains (splitOn); default off.
++pub fn splitWanted() bool {
++    return @import("sys").environment.read(bool, "TF_FLASHNEXT_GDN_SPLIT", false) catch false;
++}
++
+ /// Whether a pass on heads h splits each head's state rows over blocks: when every block has an SM of its own.
+ pub fn splitOn(sms: u32, h: Heads) bool {
+     return sms >= h.nv * (gdn.dv / split_rows);
+diff --git a/zig/src/platform/environment.zig b/zig/src/platform/environment.zig
+index c6a43dc95..de7eb9f7d 100644
+--- a/zig/src/platform/environment.zig
++++ b/zig/src/platform/environment.zig
+@@ -306,6 +306,7 @@ const stock_rules = [_]Rule{
+     .{ .name = "TF_FLASHNEXT_GPU_TOPK", .scope = .flashnext, .kind = .flag, .forms = "0 or 1 (default 1)" },
+     .{ .name = "TF_FLASHNEXT_BATCH_GDN_WIDE", .scope = .flashnext, .kind = .flag, .forms = "0 or 1 (default 0)" },
+     .{ .name = "TF_FLASHNEXT_GDN_FUSED", .scope = .flashnext, .kind = .flag, .forms = "0 or 1 (default 1)" },
++    .{ .name = "TF_FLASHNEXT_GDN_SPLIT", .scope = .flashnext, .kind = .flag, .forms = "0 or 1 (default 0)" },
+     .{ .name = "TF_FLASHNEXT_GDN_CHAIN_TPR", .scope = .flashnext, .kind = .flag, .forms = "0 or 1 (default 0)" },
+     .{ .name = "TF_FLASHNEXT_GDN_LANES", .scope = .flashnext, .kind = .flag, .forms = "0 or 1 (default 1)" },
+     .{ .name = "TF_FLASHNEXT_BATCH_HEADS", .scope = .flashnext, .kind = .flag, .forms = "0 or 1 (default 1)" },
+diff --git a/zig/src/platform/environment_flashnext_test.zig b/zig/src/platform/environment_flashnext_test.zig
+index 8de8cff74..c3bd9a64f 100644
+--- a/zig/src/platform/environment_flashnext_test.zig
++++ b/zig/src/platform/environment_flashnext_test.zig
+@@ -33,13 +33,13 @@ fn check(name: []const u8, raw: []const u8, valid: bool) !void {
+     try t.expect(std.mem.endsWith(u8, why.?, e.rule(name).forms));
+ }
+ 
+-test "Flash Next strict env: the table holds all 43 settings: 31 switches, 9 integers, 1 real, 2 structured" {
++test "Flash Next strict env: the table holds all 44 settings: 32 switches, 9 integers, 1 real, 2 structured" {
+     var counts: [4]usize = @splat(0);
+     for (e.rules) |r| if (r.scope == .flashnext) {
+         try t.expect(std.mem.startsWith(u8, r.name, "TF_FLASHNEXT_"));
+         counts[@backingInt(group(r))] += 1;
+     };
+-    try t.expectEqual([4]usize{ 31, 9, 1, 2 }, counts);
++    try t.expectEqual([4]usize{ 32, 9, 1, 2 }, counts);
+ }
+ 
+ test "Flash Next strict env: unset and blank settings both read as the caller's default" {
+-- 
+2.56.0
+
