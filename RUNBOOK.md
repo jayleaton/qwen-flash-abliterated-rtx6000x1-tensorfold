@@ -87,24 +87,24 @@ compile: the engine comes prebuilt in a `recipe kit` bundle. On a rented host, s
 
 ### The bundle
 
-The release bundle below predates `patches/disk`, `patches/dynkv` and `patches/precision`: its `default` and `optimised`
-serve as before, but `agent` and `w4a4` need a bundle built from tree `776a5050` (`recipe kit` after `recipe prepare`
-with `GPU=sm_120 CPU=x86_64_v3`).
+The release bundle is tree `776a5050` (the pin plus all six series), built for `GPU=sm_120 CPU=x86_64_v3` in
+`nvidia/cuda:13.0.2-devel-ubuntu22.04` and attached to this repository's release `engine-776a50508dca-sm120-r3`:
 
-`qwen-flash-abliterated-rtx6000x1-876097bfb837` (engine tree `876097bf`, the pin plus `patches/loader`,
-`patches/tp1:0011` and `patches/re-pin`, built for `GPU=sm_120 CPU=x86_64_v3`), attached to this repository's
-release `engine-876097bfb837-sm120-r2`:
-
-- bundle `.tar.gz` sha256 `3b39392ab498e9fd12b43e26033de25d57d88e7ededd6ab9929d785ecc818139`
-- `engine/zig-out/native/bin/tensorfold-native` sha256 `4ee7b682d62f1f9610249d5bdebbfde729b1e3c6f656c5a01b37efa61c490495`
+- `qwen-flash-abliterated-rtx6000x1-776a50508dca.tar.gz` sha256 `511339d41fcff534918682aba53589edc37b261a1231002fe3dfddf7f17bbe55`
+- `engine/zig-out/native/bin/tensorfold-native` sha256 `2123ceca50b25a57c89dcc237372aa51e5964fef5544e954cdc51c665e779898`
 - the bundle's kit is this repository at the recipe's `[kit] rev`, so its receipts are clean, not `dev:`
+
+R1 to R4 below ran on the earlier bundle `engine-876097bfb837-sm120-r2` (tree `876097bf`, before `patches/disk`,
+`patches/dynkv` and `patches/precision`; tar.gz sha256 `3b39392ab498e9fd12b43e26033de25d57d88e7ededd6ab9929d785ecc818139`,
+binary `4ee7b682d62f1f9610249d5bdebbfde729b1e3c6f656c5a01b37efa61c490495`); its `default` and `optimised` give the same
+tokens as r3's, so it stays published for those cells' comparability.
 
 ### Run it
 
 ```sh
 W=$HOME/rental; mkdir -p "$W" && cd "$W"
-gh release download engine-876097bfb837-sm120-r2 -R jayleaton/qwen-flash-abliterated-rtx6000x1-tensorfold
-echo "3b39392ab498e9fd12b43e26033de25d57d88e7ededd6ab9929d785ecc818139  qwen-flash-abliterated-rtx6000x1-876097bfb837.tar.gz" | sha256sum -c && tar xzf qwen-flash-abliterated-rtx6000x1-876097bfb837.tar.gz
+gh release download engine-776a50508dca-sm120-r3 -R jayleaton/qwen-flash-abliterated-rtx6000x1-tensorfold
+echo "511339d41fcff534918682aba53589edc37b261a1231002fe3dfddf7f17bbe55  qwen-flash-abliterated-rtx6000x1-776a50508dca.tar.gz" | sha256sum -c && tar xzf qwen-flash-abliterated-rtx6000x1-776a50508dca.tar.gz
 git clone https://github.com/jayleaton/qwen-flash-abliterated-rtx6000x1-tensorfold repo
 nohup bash repo/qwen-flash-abliterated-rtx6000x1/tools/rental.sh all > rental.log 2>&1 &
 ```
@@ -145,14 +145,38 @@ of about 75 s plus their cells, a bench); fit 5 min; hashes 10 min; gate 20 min;
 | R3 ABBA | shipped pack, 550 W cap (earlier reference: 600 W), 2 rounds, bar 3%, control drift up to 2.4%. `default`: code x1 266.6, chat x1 185.3, cold 8K 8,254, code x16 1,345.6, chat x16 1,199.5 tok/s (the earlier reference on NVIDIA's pack at 600 W: code x1 291, cold 8K 8,818). `optimised` (x12) against `default`: code x1 -0.9%, chat x1 +0.2%, cold 8K +4.6%, code x12 +8.0%, chat x12 +12.1%; the kit's verdict reads `worse` only from the x16 cells, which 12 streams serve queued (-9.6%, -20.8%). By the first cell `optimised` does not win at one stream |
 | R4 soak | STABLE: `recipe soak default` on the shipped pack, 30 minutes, 4 workers, 2,325 requests with 262 cancels, 0 failed, 7 probes with constant hashes, free memory never below 14.78 GiB, peak 92 C at a 550 W cap. Two earlier 30-minute soaks read UNSTABLE only from their cold 32K probes, which a 16,384-token window refuses (KNOWN-ISSUES); each also had 0 failed requests |
 
+### A second host at 600 W
+
+One RTX PRO 6000 Blackwell **Server** Edition on another cloud host: driver 580.82.07, power limit 600 W (its default
+and maximum), PCIe gen5 x16, 48 x86 cores, 176 GiB RAM, NVMe scratch. Under one decode stream the SM held 2,265-2,280
+MHz at up to 300 W with no throttle reason. The `default` cells ran on bundle r2; `agent` on tree `0272db7d`, which
+differs from `776a5050` only by `patches/precision` (opt-in, `w4a4` only); `w4a4` on bundle r3. Its numbers compare
+with each other, not with the first host's (another card and cap).
+
+| step | result |
+| --- | --- |
+| G1 ABBA at 600 W | r2, `default` against `optimised` (x12), 2 rounds, bar 3%, control drift up to 1.0%: `default` code x1 242.6, chat x1 167.4, cold 8K 7,558, code x16 1,189.5, chat x16 1,044.2 tok/s; `optimised` code x1 -0.2%, chat x1 +1.1%, cold 8K **+15.8%** (8,753), code x16 -6.4%, chat x16 -16.9% (12 streams serve x16 queued, so the kit's `worse` reads those cells). An earlier pass was void: its first cell's cold 8K ran at 1,384 tok/s (KNOWN-ISSUES) |
+| G2 `agent` fit and gate | `model 76.97 GiB; 8 streams at once ... 1900 pages of 256 rows (13.95 GiB) as they need them (enough for 1 at a 262144-token window) ... of 14.0 GiB left`; `/metrics` `kv_capacity_mode` paged, pool 486,400 tokens; 83,711 MiB on the card. `recipe gate agent`: 4 passed, 0 failed, 2 skipped (resumed, evict) |
+| G3 `agent` ABBA | against `default`, x1 cells: code -0.2%, chat +0.7%; no difference |
+| G4 fixed against paged | dev profiles at 36,864 x 8 (fixed, and the same with `TF_FLASHNEXT_KV_PAGES=256`, `_ALL=1`), same binary: code x1 +0.7%, chat x1 +0.3%, code x8 +0.6%, chat x8 +0.4%, cold 8K +0.9%, cold 32K 8,030 against 8,010 (fixed's first 32K cell, 1,393, left out); same tokens. The kit reads it `unmeasured`: its `default` control cannot serve the 32K cell |
+| G5 mixed traffic | `agent`, NVMe tier on: short chats beside one session grown to 247,320 tokens; 55 of 56 requests 200, the 56th that session's next turn (267,476 tokens), refused `context_length_exceeded`. Pool never below 144,128 tokens free of 486,400; up to 7 running and 6 waiting; 14 GB on disk |
+| G6 turn-2 TTFT | S8's method on `agent`: cold / RAM / NVMe after eviction / NVMe after restart: 32K 6.18 / 1.23 / 4.37 / 1.61 s, 64K 10.14 / 1.40 / 2.59 / 2.11 s, 128K 17.17 / 1.89 / 5.63 / 3.09 s; tokens equal in all four at each size and equal to the GB10's (`7989cc9ec180`, `9ccea81c1c81`, `0b75826f55a0`); 0 `StagingFull` |
+| G7 one long prompt | S9's method: 64K cold 10.27 / RAM 1.40 / NVMe after restart 2.08 s, 128K 18.87 / 1.82 / 3.03 s; tokens `d2a261efbf82`, `4169cbb640d8` (the GB10's); 0 `StagingFull` |
+| G8 restore rate | the server's disk reads: 2.0 GiB in 0.66 s and 3.9 GiB in 1.25-1.55 s (2.5-3.1 GiB/s); the whole restore after a restart (disk read and the copy over PCIe, the request's `wait_seconds`) 1.04 GiB in 0.56 s, 1.96 GiB in 1.06 s, 3.82 GiB in 2.06 s: **1.85 GiB/s** at every size |
+| G9 `agent` soak | STABLE: 30 minutes, 4 workers, 1,298 requests with 169 cancels, 0 failed, 7 probes with constant hashes, free memory never below 11.04 GiB, peak 67 C |
+| W1 `w4a4` gate | r3: 4 passed, 0 failed, 2 skipped; hashes 12/12 equal to the GB10-recorded `w4a4` rows, so they stand unchanged; cold 8K `f95c702eb707` and 32K `72b1fa31238e`, the GB10's |
+| W2 `w4a4` ABBA | against `optimised` (control `default`), 2 rounds: cold 8K **-12.7%** (7,553 against 8,647), code x1 +5.6%, chat x1 +9.4%, code x12 -4.9%, chat x12 -3.4%. The lever loses on this card's prompts |
+| W3 small passes | the flag on `default`'s 3,072-row passes, against `default`: cold 8K **-38.4%** (4,492 against 7,290), code x16 +0.9% |
+| W4 nsys | one cold prompt under nsys at `--context 65536 --parallel 4`, window ms 8K / 32K: `default` 1,007 / 4,067, `optimised` 834 / 3,421, `w4a4` 964 / 3,957. Routed experts at 8K: 237, 195 and 326 ms; the FP4 path is the slower one here. `default`'s largest family is the DeltaNet chain (25.8%; 8.2% on the GB10), `optimised`'s split takes it from 253 to 154 ms. GPU busy 95-97% |
+| W5 kernel contract | `tf-cuda-test kernel-contract "ck swiglu" "ck experts"` built for sm_120 from tree `776a5050`: 46 PASS, 0 FAIL, 0 N/A |
+| W6 `w4a4` eval | the eval's flags: refusal 0/50, over-refusal 0/30, MMLU 83.0%, HumanEval 82.5%, the GB10's row |
+| W7 `w4a4` fit | `model 79.55 GiB; 12 streams at once, 0.95 GiB each at a 16384-token window, of 11.4 GiB left`, 82,563 MiB: as `optimised` |
+
 ## Still open
 
-- `optimised` has not run a soak, and its levers have not been attributed one by one. `agent` soaked on a GB10 only.
-- `agent`'s 262,144 x 8 pool has not booted on a 6000: its page count, an ABBA of paged against fixed windows on
-  the 6000, a soak and a 262K session there are open, and need a bundle of tree `776a5050`.
-- `w4a4` has not run on a 6000: its gate, its ABBA against `optimised` and its eval are owed there (the recipe's
-  README lists them). The other profiles run `--precision full`, which the precision series leaves as it was: the
-  patched GB10 binary gives the recorded hashes.
+- `optimised` has not run a soak, and its levers have not been attributed one by one.
+- `w4a4` loses on a 6000's prompts (W2-W4): its FP4 expert path is slower than the BF16-row one there. It stays
+  opt-in and unshipped; a soak of it is not owed until a lever makes it win.
 - The `drafts-greedy` arm has not been benched.
 - A follow-up, not wired: the FP8 recipe's 0084 (`TF_FLASHNEXT_PLE_EARLY`, `TF_FLASHNEXT_ROUND_TURN`), which this
   series does not carry.

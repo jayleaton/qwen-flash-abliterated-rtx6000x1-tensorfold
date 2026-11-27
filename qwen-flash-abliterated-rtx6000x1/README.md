@@ -31,7 +31,7 @@ repository [README](../README.md) and [RUNBOOK](../RUNBOOK.md), and what is stil
 | --- | --- | --- |
 | `default` | one GPU, `--context 16384 --parallel 16`, `KEPT=device` | the shipped profile: every lane off, gated and soaked, and the reproduction reference; `KEPT=device` pins main's memory layout for that check |
 | `optimised` | `--parallel 12`: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | every one-GPU lever: cold 8K +4.6%, x12 +8% code and +12% chat over `default`, one stream flat; not soaked yet |
-| `agent` | `optimised` less `CHUNK_SOLO` at `--context 262144 --parallel 8`, every stream on one shared K/V page pool, prompt cache 32 GiB in host RAM and on disk ([below](#prompt-states-on-nvme)) | the coding-agent window, where agents stop compacting and mis-quoting `edit` text: short chats cost little, one session can grow to 262,144 tokens; gated and soaked on a GB10, not yet booted on a 6000 |
+| `agent` | `optimised` less `CHUNK_SOLO` at `--context 262144 --parallel 8`, every stream on one shared K/V page pool, prompt cache 32 GiB in host RAM and on disk ([below](#prompt-states-on-nvme)) | the coding-agent window, where agents stop compacting and mis-quoting `edit` text: short chats cost little, one session can grow to 262,144 tokens; gated and soaked on a GB10 and on a 6000 (RUNBOOK G2-G9) |
 | `w4a4` | `optimised` plus `--precision checkpoint` | opt-in, not shipped: the routed experts in the pack's own NVFP4 x NVFP4 math; other tokens, its own hash rows; measured on a GB10 only ([below](#the-w4a4-profile)) |
 
 ## Levers and switches
@@ -51,7 +51,7 @@ lever alone.
 | `TF_FLASHNEXT_ROLL_BATCH` | `optimised` | part of a measured +4.3% decode stack, alone within noise | no |
 | `TF_FLASHNEXT_ROUTE_FUSED` | `optimised` | the NVFP4 plan path never ran on a GPU | no |
 | `TF_FLASHNEXT_READOUT_DECODE` | `optimised` | small decode gain elsewhere | no |
-| `TF_FLASHNEXT_KV_PAGES=256`, `_KV_PAGES_ALL=1` | `agent` | **measured** on one GB10: the same tokens as fixed windows, ABBA within 0.3% at the 3% bar ([CAPACITY](docs/CAPACITY.md#one-shared-kv-pool-agent)) | not on a 6000 |
+| `TF_FLASHNEXT_KV_PAGES=256`, `_KV_PAGES_ALL=1` | `agent` | **measured** on one GB10: the same tokens as fixed windows, ABBA within 0.3% at the 3% bar, and on one 6000 within 1% ([CAPACITY](docs/CAPACITY.md#one-shared-kv-pool-agent)) | |
 | `TF_FLASHNEXT_KEPT=host` | `optimised`, `agent` | frees VRAM for KV, restores cross PCIe; tokens should not depend on it | no |
 | `TF_FLASHNEXT_KEPT=device` | `default` | main's memory layout, for the reproduction check | n/a (a placement, not a lever) |
 | `TF_FLASHNEXT_DRAFTS_GREEDY=12` | the `drafts-greedy` arm | +5% greedy decode elsewhere; NVFP4 accepts fewer drafts, so it is measured alone | no |
@@ -101,8 +101,10 @@ writes under a 1 GiB permit, which skipped any prompt adding more than about 33K
 The permit now takes one whole state at `--context`, never past `--prompt-cache-gib`, as upstream already does for
 Gemma 4; it is sized once at startup.
 
-Hardware: measured on a GB10 (unified memory); expected on `rtx6000x1`, where a state also crosses PCIe into the
-pinned host cache (`KEPT=host`); the 6000's own restore rate is open ([KNOWN-ISSUES](docs/KNOWN-ISSUES.md)).
+Hardware: the table is a GB10's (unified memory). On one 6000, where a state also crosses PCIe into the pinned host
+cache (`KEPT=host`), the same sessions give the same tokens and take, cold / RAM / NVMe after eviction / NVMe after
+restart: 32K 6.18 / 1.23 / 4.37 / 1.61 s, 64K 10.14 / 1.40 / 2.59 / 2.11 s, 128K 17.17 / 1.89 / 5.63 / 3.09 s; a
+restore runs at about 1.85 GiB/s (RUNBOOK G6-G8, [KNOWN-ISSUES](docs/KNOWN-ISSUES.md)).
 `default` and `optimised` leave the tier off: a 16K prompt prefills in about 2 s on a 6000, about what reading
 its state back takes. Salted requests (`cache_salt`) stay in RAM.
 
@@ -138,9 +140,11 @@ p = 0.29), HumanEval 82.5% against 82.5% (the same 33 tasks). The checkpoint-mat
 contract on the GB10 (11 kernels, gates 1 to 4). The profile gives one answer: code `264573c23616`, chat `29fe31c8d074`,
 cold 8K `f95c702eb707`, the same under `default`'s switches and `optimised`'s, and 16 copies sent together agree.
 
-**Not measured on a 6000.** Before `w4a4` is used there: a bundle of this pin for `sm_120`; `recipe gate w4a4` (its
-hash rows were recorded on the GB10, as `default`'s were before a 6000 reproduced them); `recipe bench optimised
-w4a4`; the eval; and the kernel contract's `ck` kernels on that card.
+**On a 6000 it loses** (RUNBOOK W1-W7, one Server Edition at 600 W, bundle r3): the same tokens as the GB10 (`recipe
+gate w4a4` 12/12, cold 8K and 32K), the same eval (0/50, 0/30, MMLU 83.0%, HumanEval 82.5%), and its `ck` kernels pass
+the kernel contract on sm_120 (46 checks); but against `optimised` cold 8K is **-12.7%** (7,553 against 8,647 tok/s),
+code x1 +5.6%, chat x1 +9.4%, code x12 -4.9%, chat x12 -3.4%, and on `default`'s 3,072-row passes cold 8K is -38.4%.
+nsys puts the FP4 experts at 326 ms of an 8K prompt against the BF16-row path's 195. Use it on a GB10 only.
 
 ## Gates
 
