@@ -9,12 +9,14 @@ Every step runs the kit from a checkout of this repository (`bin/recipe ... --ki
 or from a `recipe kit` bundle for clean receipts: the bundle's kit release carries the pinned revision's
 `REVISION` file. `ENGINE` below is a prepared engine directory, `MODEL` a downloaded pack.
 
-The engine is upstream TensorFold main plus four series, applied in order: the **loader series** (the shipped
+The engine is upstream TensorFold main plus six series, applied in order: the **loader series** (the shipped
 pack's stated quantization and fused MTP experts do not load without it), the **one-GPU lever series**
 (`patches/tp1`), a **re-pin patch** that reconciles the two series' re-pins of upstream's serving-source
-hashes, the **disk permit** (`patches/disk`), which lets one state as long as the window reach the disk tier, and the
+hashes, the **disk permit** (`patches/disk`), which lets one state as long as the window reach the disk tier, the
 **dynamic K/V series** (`patches/dynkv`), which puts the engine's own stream on upstream's page pool so that
-`agent`'s streams share one pool. The **eval harness** in the recipe's `eval/` scores refusals and quality.
+`agent`'s streams share one pool, and the **precision series** (`patches/precision`: `--precision checkpoint` for
+the opt-in `w4a4` profile, with its own re-pin). The **eval harness** in the recipe's `eval/` scores refusals and
+quality.
 
 ## 1. A GB10 (DGX Spark)
 
@@ -85,8 +87,9 @@ compile: the engine comes prebuilt in a `recipe kit` bundle. On a rented host, s
 
 ### The bundle
 
-The release bundle below predates `patches/disk` and `patches/dynkv`: its `default` and `optimised` serve as before, but `agent` needs
-a bundle built from tree `0272db7d` (`recipe kit` after `recipe prepare` with `GPU=sm_120 CPU=x86_64_v3`).
+The release bundle below predates `patches/disk`, `patches/dynkv` and `patches/precision`: its `default` and `optimised`
+serve as before, but `agent` and `w4a4` need a bundle built from tree `776a5050` (`recipe kit` after `recipe prepare`
+with `GPU=sm_120 CPU=x86_64_v3`).
 
 `qwen-flash-abliterated-rtx6000x1-876097bfb837` (engine tree `876097bf`, the pin plus `patches/loader`,
 `patches/tp1:0011` and `patches/re-pin`, built for `GPU=sm_120 CPU=x86_64_v3`), attached to this repository's
@@ -146,7 +149,10 @@ of about 75 s plus their cells, a bench); fit 5 min; hashes 10 min; gate 20 min;
 
 - `optimised` has not run a soak, and its levers have not been attributed one by one. `agent` soaked on a GB10 only.
 - `agent`'s 262,144 x 8 pool has not booted on a 6000: its page count, an ABBA of paged against fixed windows on
-  the 6000, a soak and a 262K session there are open, and need a bundle of tree `0272db7d`.
+  the 6000, a soak and a 262K session there are open, and need a bundle of tree `776a5050`.
+- `w4a4` has not run on a 6000: its gate, its ABBA against `optimised` and its eval are owed there (the recipe's
+  README lists them). The other profiles run `--precision full`, which the precision series leaves as it was: the
+  patched GB10 binary gives the recorded hashes.
 - The `drafts-greedy` arm has not been benched.
 - A follow-up, not wired: the FP8 recipe's 0084 (`TF_FLASHNEXT_PLE_EARLY`, `TF_FLASHNEXT_ROUND_TURN`), which this
   series does not carry.

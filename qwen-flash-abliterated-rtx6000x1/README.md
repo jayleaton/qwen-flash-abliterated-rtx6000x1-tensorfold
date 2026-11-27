@@ -32,6 +32,7 @@ repository [README](../README.md) and [RUNBOOK](../RUNBOOK.md), and what is stil
 | `default` | one GPU, `--context 16384 --parallel 16`, `KEPT=device` | the shipped profile: every lane off, gated and soaked, and the reproduction reference; `KEPT=device` pins main's memory layout for that check |
 | `optimised` | `--parallel 12`: `GDN_SPLIT`, `CHUNK_SOLO` 8192, `ATTN_LANES`, `ROLL_BATCH`, `ROUTE_FUSED`, `READOUT_DECODE`, `KEPT=host` | every one-GPU lever: cold 8K +4.6%, x12 +8% code and +12% chat over `default`, one stream flat; not soaked yet |
 | `agent` | `optimised` less `CHUNK_SOLO` at `--context 262144 --parallel 8`, every stream on one shared K/V page pool, prompt cache 32 GiB in host RAM and on disk ([below](#prompt-states-on-nvme)) | the coding-agent window, where agents stop compacting and mis-quoting `edit` text: short chats cost little, one session can grow to 262,144 tokens; gated and soaked on a GB10, not yet booted on a 6000 |
+| `w4a4` | `optimised` plus `--precision checkpoint` | opt-in, not shipped: the routed experts in the pack's own NVFP4 x NVFP4 math; other tokens, its own hash rows; measured on a GB10 only ([below](#the-w4a4-profile)) |
 
 ## Levers and switches
 
@@ -104,6 +105,42 @@ Hardware: measured on a GB10 (unified memory); expected on `rtx6000x1`, where a 
 pinned host cache (`KEPT=host`); the 6000's own restore rate is open ([KNOWN-ISSUES](docs/KNOWN-ISSUES.md)).
 `default` and `optimised` leave the tier off: a 16K prompt prefills in about 2 s on a 6000, about what reading
 its state back takes. Salted requests (`cache_salt`) stay in RAM.
+
+## The `w4a4` profile
+
+The pack states an input scale beside every routed expert projection's weight scales: its quantizer calibrated NVFP4
+activations (W4A4), and the default path runs bf16 rows against the FP4 weights instead (W4A16). `patches/precision`
+adds `--precision checkpoint`, which takes the pack's own math on Blackwell's FP4 tensor cores; `w4a4` is `optimised`
+with that flag. It **changes tokens**, so it is opt-in, has its own rows in `gates/hashes.json`, and is not in
+`ships`. `--precision full`, the default, runs as before: the patched GB10 binary gives all 12 recorded decode hashes
+and the cold 8K hash.
+
+Measured on one GB10 only (served `--context 65536 --parallel 4`, ABBA, a fresh server a cell, cold prompts, tok/s):
+
+| against | cold 8K | cold 32K |
+| --- | --- | --- |
+| `optimised` 2,296 and 2,321 / 2,244 and 2,257 | 2,479 and 2,479: **+7.4%** | 2,401 and 2,402: **+6.7%** |
+| the same flag on `default`'s 3,072-row passes, against `default` | -4.8% | -3.5% |
+
+The gain needs the 8,192-row pass: at 3,072 rows both paths sit on reading the experts' weights, and the FP4 path is
+the slower one on a GB10. A solo prompt takes the large pass; concurrent prompts share smaller ones. A 6000 has 6.6
+times the bandwidth, so neither row predicts it.
+
+Decode on the same card, `optimised` against `w4a4` (ABBA, 256 greedy tokens, aggregate tok/s): code x1 53.4 to 55.8
+(+4.4%), chat x1 37.2 to 41.0 (+10.2%), code x4 168.8 to 162.6 (**-3.7%**), chat x4 120.9 to 129.1 (+6.8%). The
+replies are other tokens, so the draft head's accepted count moves with them (chat 155 to 169 of 256, code 196 to
+197): part of each row is the text, not the kernels. Every concurrent reply equals its alone run and every drafted
+reply its plain one.
+
+Quality against `default`, the recipe's [eval](eval/README.md) with the same flags: refusal 0/50 and over-refusal
+0/30 (the same), MMLU 83.0% against 85.0% (6 questions right only for `default`, 2 only for `w4a4`, exact McNemar
+p = 0.29), HumanEval 82.5% against 82.5% (the same 33 tasks). The checkpoint-math kernels pass the engine's kernel
+contract on the GB10 (11 kernels, gates 1 to 4). The profile gives one answer: code `264573c23616`, chat `29fe31c8d074`,
+cold 8K `f95c702eb707`, the same under `default`'s switches and `optimised`'s, and 16 copies sent together agree.
+
+**Not measured on a 6000.** Before `w4a4` is used there: a bundle of this pin for `sm_120`; `recipe gate w4a4` (its
+hash rows were recorded on the GB10, as `default`'s were before a 6000 reproduced them); `recipe bench optimised
+w4a4`; the eval; and the kernel contract's `ck` kernels on that card.
 
 ## Gates
 
