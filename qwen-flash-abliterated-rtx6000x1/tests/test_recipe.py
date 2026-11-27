@@ -21,7 +21,11 @@ def plan() -> profiles.Plan:
 
 class Gates(unittest.TestCase):
     def test_the_gate_files_load(self):
-        self.assertIn("*", hashes.load(ROOT / "gates" / "hashes.json")["expected"])
+        table = hashes.load(ROOT / "gates" / "hashes.json")
+        self.assertIn("*", table["expected"])
+        spark = hashes.load(ROOT / "gates" / "spark.hashes.json")
+        self.assertEqual(spark["prompts"], table["prompts"])
+        self.assertEqual(set(spark["expected"]["*"]), set(table["prompts"]))
         self.assertIsInstance(json.loads((ROOT / "gates" / "conformance.json").read_text())["prompts"], dict)
 
     def test_the_control_reference_holds_the_old_one_gpu_hashes(self):

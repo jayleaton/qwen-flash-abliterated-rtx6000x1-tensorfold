@@ -8,13 +8,15 @@ The abliterated pack keeps the control pack's quantization values (ModelOpt NVFP
 `quant_algo: NVFP4` with an ignore list, and stores its MTP experts fused in BF16; upstream main refuses both.
 The two loader patches teach the config check the stated layout and host-quantize the fused experts into the
 FP8 form the head already serves (nvidia's own layout, at FP8 rounding noise). Served tokens do not depend on
-the draft head, so the rounding can change acceptance, never tokens; the Spark's fit step confirms the load
-and its `drafted == plain` check on the GPU.
+the draft head, so the rounding can change acceptance, never tokens. On one GB10 the pack loads, the
+conformance gate's `drafted` check (drafted equals plain) passes, and the head drafts 4.27 tokens a round on
+greedy code (nvidia's pack: 4.41 on a 6000), so the layout is right.
 
 ## Not soak-tested
 
-No NVFP4 profile, old or new, has run a 30-minute soak of mixed traffic. The RUNBOOK's soak step records the
-first one on the shipped weights.
+No NVFP4 profile, old or new, has run a 30-minute soak of mixed traffic. On one GB10 a 10-minute soak of the
+shipped weights is STABLE (133 requests, 20 cancels and disconnects, 0 failed, probe hashes constant); the
+RUNBOOK's R4 step records the first 30-minute one on the 6000.
 
 ## The codex32 cliff
 

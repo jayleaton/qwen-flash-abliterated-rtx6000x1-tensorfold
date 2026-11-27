@@ -16,7 +16,7 @@ port = 8090
 # The kit revision this recipe runs with (git rev-parse HEAD in this repository's checkout); any other
 # refuses to run. A hosted run from a later checkout passes --kit-dev and stamps its receipts dev.
 [kit]
-rev = "c347c7370cef568e9a5ec3ba4fcbba290570f133"
+rev = "af19cdc4f6d3d5adb718dd9c53508722a575e597"
 testkit = ">=0.1,<1"
 
 # Upstream main plus three series, applied in order: patches/loader reads the shipped pack's ModelOpt config
@@ -31,11 +31,12 @@ tree = "876097bfb83763f480faac3a43079f0868596c5e"
 series = ["patches/loader", "patches/tp1:0011", "patches/re-pin"]
 
 # vars are defaults that the environment overrides (NVCC=... GPU=... recipe prepare).
-# GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark.
+# GPU is the -Dgpu target: sm_80, sm_86, sm_89, sm_110, sm_120, sm_121 or spark. CPU is the -Dcpu target: native
+# for this host only; a binary for another host names its CPU level (the rental bundle is x86_64_v3).
 [engine.cuda.build]
-vars = { NVCC = "/usr/local/cuda/bin/nvcc", GPU = "sm_120" }
+vars = { NVCC = "/usr/local/cuda/bin/nvcc", GPU = "sm_120", CPU = "native" }
 executables = ["NVCC"]
-steps = [["zig", "build", "-Dgpu={GPU}", "-Dnvcc={NVCC}"]]
+steps = [["zig", "build", "-Dgpu={GPU}", "-Dnvcc={NVCC}", "-Dcpu={CPU}"]]
 outputs = ["zig-out/native/bin/tensorfold-native"]
 
 # libtfgrammar, for required and named tool calls and response_format. XGRAMMAR=DIR uses a checkout,
@@ -46,7 +47,7 @@ var = "XGRAMMAR"
 repo = "https://github.com/mlc-ai/xgrammar"
 tag = "v0.2.8"
 commit = "97787376faee5ed8466cfad57c99855e4ce2f6aa"
-steps = [["zig", "build", "grammar", "-Dxgrammar={XGRAMMAR}"]]
+steps = [["zig", "build", "grammar", "-Dxgrammar={XGRAMMAR}", "-Dcpu={CPU}"]]
 outputs = ["zig-out/native/lib/libtfgrammar.so"]
 
 # The shipped weights: the abliterated pack. The control pack (nvidia/Qwen3.8-Flash-Next-NVFP4 at fc694b54)
@@ -60,9 +61,10 @@ sha256 = "config/weights.sha256"
 profile = "rtx6000x1"
 
 # What recipe gate holds the server to: a conformance profile in upstream's tools/conformance_profiles format,
-# and the expected token hashes by prompt and profile ("*" for every profile without its own row). The hash
-# table is empty and waits on the first GPU run; gates/control.hashes.json holds the old recipe's one-GPU
-# reference on the control pack until then.
+# and the expected token hashes by prompt and profile ("*" for every profile without its own row). The decode
+# rows wait on the first 6000 run (tools/rental.sh records them); the cold rows name the bench's prompts.
+# gates/control.hashes.json holds the old recipe's one-GPU reference on the control pack, and
+# gates/spark.hashes.json the shipped pack's GB10 hashes, a reference for that run, never its expected row.
 [gates]
 conformance = "gates/conformance.json"
 hashes = "gates/hashes.json"
