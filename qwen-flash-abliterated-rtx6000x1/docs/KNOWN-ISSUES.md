@@ -18,6 +18,21 @@ No NVFP4 profile, old or new, has run a 30-minute soak of mixed traffic. On one 
 shipped weights is STABLE (133 requests, 20 cancels and disconnects, 0 failed, probe hashes constant); the
 RUNBOOK's R4 step records the first 30-minute one on the 6000.
 
+## `optimised` does not fit at `--parallel 16`
+
+On one RTX PRO 6000 the `optimised` profile refuses to boot: `--parallel 16 needs 15.15 GiB for its streams at a
+16384-token window, and the CUDA memory budget leaves 11.36 GiB: serve --parallel 12, or lower --context`. The
+`default` profile boots with 14.0 GiB left, so a lever's own memory (`TF_FLASHNEXT_CHUNK_SOLO=8192`'s prompt
+passes of 8,192 rows are the likely one) takes the difference. Until a lever leaves `optimised` or its width
+drops to 12, `recipe bench default optimised` measures no `optimised` cell.
+
+## Speed needs an honest power reading
+
+The first 6000 host's GPU read 790-940 W at 32-34 C against its 550 W limit, so the software power cap held the
+SM clock at about 600 MHz of 3,090 and every speed number was void (code x1 39.6 tok/s against the reference's
+291). `tools/rental.sh check` logs the power limit; before a bench, `nvidia-smi --query-gpu=clocks.sm,power.draw
+--format=csv` under load should show the clock near its maximum and a draw at or under the limit.
+
 ## The codex32 cliff
 
 At 32 streams decode falls off the drafting rounds' 64-row cap shared across streams (each stream drafted

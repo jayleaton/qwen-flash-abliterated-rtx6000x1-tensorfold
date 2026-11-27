@@ -126,8 +126,8 @@ Results (filled by the stream that gets the approved window):
 
 | step | run by | result | receipt / PR |
 | --- | --- | --- | --- |
-| R1 6000 hashes | | | |
-| R2 fit | | | |
+| R1 6000 hashes | stream L | partial: the control pack at this pin reproduces the old recipe's one-GPU reference exactly, decode code `4e759dbd859c`, chat `764da77fbd3f` and cold 8K `fa345c10f631` (all 12 decode hashes in the receipt); the shipped pack's rows wait on a run | first 6000 host's receipts |
+| R2 fit | stream L | partial: `default` on the control pack boots with `model 76.91 GiB; 16 streams at once, 0.85 GiB each at a 16384-token window, of 14.0 GiB left after a 3.0 GiB reserve`, 79,883 MiB on the card; `optimised` does not boot at `--parallel 16` (KNOWN-ISSUES) | first 6000 host's receipts |
 | R3 ABBA | | | |
 | R4 soak | | | |
 
