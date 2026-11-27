@@ -26,8 +26,14 @@ log() { echo "$(date -u +%FT%TZ) $*" | tee -a "$OUT/SUMMARY.txt"; }
 die() { log "FAIL $*"; exit 1; }
 toml() { python3 -c 'import sys, tomllib; d = tomllib.load(open(sys.argv[1], "rb")); print(d[sys.argv[2]][sys.argv[3]])' "$R/recipe.toml" "$@"; }
 
+idle() { # idle WHAT: refuse to start WHAT while another process holds the GPU (a shared card voids every number)
+  local apps; apps=$(nvidia-smi --query-compute-apps=pid,process_name --format=csv,noheader)
+  [ -z "$apps" ] || die "$1: the GPU is busy ($(echo "$apps" | tr '\n' ' ')); not starting"
+}
+
 serve() { # serve TAG TARGET MODEL [EXTRA...]: start a profile, wait for /v1/models, log ready time and device memory
   local tag=$1 target=$2 model=$3; shift 3
+  idle "$tag"
   sync; echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || sudo -n sh -c 'echo 3 > /proc/sys/vm/drop_caches' 2>/dev/null || true
   local t0; t0=$(date +%s)
   "$RECIPE" serve --recipe "$R" --port "$PORT" "$target" "$E" "$model" -- "$@" > "$OUT/serve-$tag.log" 2>&1 &
@@ -132,9 +138,10 @@ step_control() {
   # finding to report, not a failure of this script.
   serve control default "$CONTROL"
   record_hashes control
-  log "control: $(hashes_of "$OUT/hashes-control.json" | python3 -c 'import json, sys; d = json.load(sys.stdin); print(" ".join(f"{k} {v[\"greedy\"][:12]}" for k, v in d.items()))') (reference code 4e759dbd859c chat 764da77fbd3f)"
+  log "control: $(hashes_of "$OUT/hashes-control.json" | python3 -c 'import json, sys; d = json.load(sys.stdin); print(" ".join(k + " " + v["greedy"][:12] for k, v in d.items()))') (reference code 4e759dbd859c chat 764da77fbd3f)"
   log "control: cold 8K $(cold 8192 control) (hash, tok/s; reference fa345c10f631, 8,818 tok/s)"
   stop
+  idle bench-control
   "$RECIPE" bench --recipe "$R" default optimised "$E" "$CONTROL" --out "$OUT/bench-control" > "$OUT/bench-control.txt" 2>&1 \
     || die "bench, control pack: $(tail -3 "$OUT/bench-control.txt" | tr '\n' ' ')"
   log "bench default vs optimised, control pack: $(grep -m1 'against default' "$OUT/bench-control.txt") (old tp1: code x1 291, cold 8K 8,818)"
@@ -187,12 +194,14 @@ step_gate() {
 }
 
 step_bench() {
+  idle bench
   "$RECIPE" bench --recipe "$R" default optimised "$E" "$MODEL" --out "$OUT/bench-shipped" > "$OUT/bench-shipped.txt" 2>&1 \
     || die "bench, shipped pack: $(tail -3 "$OUT/bench-shipped.txt" | tr '\n' ' ')"
   log "bench default vs optimised, shipped pack: $(grep -m1 'against default' "$OUT/bench-shipped.txt")"
 }
 
 step_soak() {
+  idle soak
   "$RECIPE" soak --recipe "$R" default "$E" "$MODEL" --out "$OUT/soak-default" > "$OUT/soak-default.txt" 2>&1 \
     || die "soak: $(tail -3 "$OUT/soak-default.txt" | tr '\n' ' ')"
   log "soak default: $(tail -1 "$OUT/soak-default.txt")"
